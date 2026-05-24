@@ -1,0 +1,29 @@
+{
+  "name": "@sighash/playground",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Internal playground for exercising @sighash/core and @sighash/react during development.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@sighash/core": "workspace:*",
+    "@sighash/react": "workspace:*",
+    "nanostores": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "rimraf": "^6.0.1",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

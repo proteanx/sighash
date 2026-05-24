@@ -1,0 +1,23 @@
+packages:
+  - "packages/*"
+  - "examples/*"
+
+allowBuilds:
+  '@biomejs/biome': true
+  esbuild: true
+
+catalog:
+  "@types/node": ^22.10.0
+  "@vitejs/plugin-react": ^4.3.4
+  "@vitest/coverage-v8": ^2.1.8
+  bitcoinjs-lib: ^7.0.0-rc.0
+  nanostores: ^0.11.3
+  react: ^19.0.0
+  react-dom: ^19.0.0
+  "@types/react": ^19.0.0
+  "@types/react-dom": ^19.0.0
+  sats-connect: ^4.2.1
+  typescript: 5.8.3
+  vite: ^5.4.11
+  vite-plugin-dts: ^4.3.0
+  vitest: ^2.1.8

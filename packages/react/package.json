@@ -1,0 +1,50 @@
+{
+  "name": "@sighash/react",
+  "version": "0.0.0",
+  "description": "React bindings for @sighash/core — provider, hook, and helpers.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.umd.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.umd.cjs"
+    }
+  },
+  "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rimraf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@sighash/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "nanostores": ">=0.11",
+    "react": ">=18"
+  },
+  "devDependencies": {
+    "@sighash/core": "workspace:*",
+    "@types/react": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "nanostores": "catalog:",
+    "react": "catalog:",
+    "rimraf": "^6.0.1",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
+    "vitest": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "sideEffects": false
+}
