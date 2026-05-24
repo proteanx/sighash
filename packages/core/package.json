@@ -19,7 +19,7 @@
     "build": "vite build",
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "clean": "rimraf dist .turbo *.tsbuildinfo"
   },
