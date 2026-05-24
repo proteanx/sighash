@@ -1,11 +1,10 @@
-import { SIGHASH_CORE_VERSION, type SighashConfig, UNISAT } from '@sighash/core';
+import { SIGHASH_CORE_VERSION, type SighashConfig, UNISAT, unisatProvider } from '@sighash/core';
 import { SIGHASH_REACT_VERSION, SighashProvider, useSighash } from '@sighash/react';
 import { useState } from 'react';
-import { mockProvider } from './mock-provider';
 
 const SIGHASH_CONFIG: SighashConfig = {
   network: 'mainnet',
-  providers: [mockProvider],
+  providers: [unisatProvider()],
 };
 
 export function App() {
@@ -16,6 +15,9 @@ export function App() {
   );
 }
 
+// PSBT magic (`psbt\xff`) + unsigned-tx header that's minimally well-formed enough for
+// UniSat's RPC to accept and round-trip in dev. Not signable — used only to exercise
+// our request/response wiring end-to-end in the playground.
 const SAMPLE_PSBT_HEX = '70736274ff01000000000000000000';
 
 function Playground() {
@@ -30,6 +32,7 @@ function Playground() {
     paymentPublicKey,
     network,
     hasUnisat,
+    client,
     connect,
     disconnect,
     signMessage,
@@ -37,25 +40,43 @@ function Playground() {
   } = useSighash();
 
   const [lastSignature, setLastSignature] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [bulkResult, setBulkResult] = useState<number | null>(null);
 
-  const handleSignMessage = async () => {
+  const capabilities = connected ? client?.capabilities(UNISAT) : undefined;
+
+  const wrap = (fn: () => Promise<void>) => async () => {
+    setLastError(null);
+    try {
+      await fn();
+    } catch (e) {
+      setLastError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const handleConnect = wrap(async () => {
+    await connect(UNISAT);
+  });
+
+  const handleSignMessage = wrap(async () => {
     setLastSignature(null);
     const sig = await signMessage('hello from sighash playground');
     setLastSignature(sig);
-  };
+  });
 
-  const handleBulkSign = async () => {
+  const handleBulkSign = wrap(async () => {
     setBulkResult(null);
     setBulkProgress({ done: 0, total: 3 });
     const psbts = [SAMPLE_PSBT_HEX, SAMPLE_PSBT_HEX, SAMPLE_PSBT_HEX];
     const result = await signPsbts({
       psbts,
+      // Default: finalize: false — bulk-signed PSBTs come back unfinalized, matching the
+      // single-sign behavior so partial-sign flows (e.g. marketplace listings) work.
       onProgress: (done, total) => setBulkProgress({ done, total }),
     });
     setBulkResult(result.signedPsbts.length);
-  };
+  });
 
   return (
     <main style={styles.main}>
@@ -82,6 +103,16 @@ function Playground() {
             label="paymentPublicKey"
             value={paymentPublicKey ? `${paymentPublicKey.slice(0, 16)}…` : '—'}
           />
+          {capabilities && (
+            <>
+              <Row label="capabilities.bulkSign" value={capabilities.bulkSign} />
+              <Row
+                label="capabilities.signMessageProtocols"
+                value={capabilities.signMessageProtocols.join(', ')}
+              />
+              <Row label="capabilities.switchNetwork" value={String(capabilities.switchNetwork)} />
+            </>
+          )}
         </dl>
       </section>
 
@@ -95,11 +126,11 @@ function Playground() {
           ) : (
             <button
               type="button"
-              onClick={() => connect(UNISAT)}
-              disabled={isConnecting}
+              onClick={handleConnect}
+              disabled={isConnecting || !hasUnisat}
               style={styles.button}
             >
-              {isConnecting ? 'Connecting…' : 'Connect (Mock UniSat)'}
+              {isConnecting ? 'Connecting…' : hasUnisat ? 'Connect UniSat' : 'UniSat not detected'}
             </button>
           )}
 
@@ -109,7 +140,7 @@ function Playground() {
             disabled={!connected}
             style={styles.button}
           >
-            Sign message
+            Sign message (ECDSA)
           </button>
 
           <button
@@ -117,10 +148,17 @@ function Playground() {
             onClick={handleBulkSign}
             disabled={!connected}
             style={styles.button}
+            title="Calls signPsbts with finalize: false — partial signatures preserved."
           >
-            Sign 3 PSBTs (sequential bulk)
+            Sign 3 PSBTs (bulk, no finalize)
           </button>
         </div>
+
+        {lastError && (
+          <p style={{ ...styles.result, color: '#c00' }}>
+            <strong>Error:</strong> <code>{lastError}</code>
+          </p>
+        )}
 
         {lastSignature && (
           <p style={styles.result}>
@@ -136,10 +174,23 @@ function Playground() {
 
         {bulkResult !== null && (
           <p style={styles.result}>
-            <strong>Bulk signed:</strong> {bulkResult} PSBTs returned
+            <strong>Bulk signed:</strong> {bulkResult} PSBTs returned (single wallet prompt via
+            UniSat native bulk RPC)
           </p>
         )}
       </section>
+
+      {!hasUnisat && (
+        <section style={styles.section}>
+          <p style={styles.note}>
+            UniSat extension not detected. Install from{' '}
+            <a href="https://unisat.io/download" style={styles.link}>
+              unisat.io/download
+            </a>{' '}
+            and refresh.
+          </p>
+        </section>
+      )}
     </main>
   );
 }
@@ -169,7 +220,7 @@ const styles = {
   dl: { display: 'grid', gridTemplateColumns: '1fr', gap: 4 },
   dlRow: {
     display: 'grid',
-    gridTemplateColumns: '180px 1fr',
+    gridTemplateColumns: '220px 1fr',
     gap: 12,
     fontSize: 13,
     fontFamily: 'ui-monospace, monospace',
@@ -187,4 +238,6 @@ const styles = {
     fontSize: 14,
   },
   result: { marginTop: 12, fontSize: 13, fontFamily: 'ui-monospace, monospace' },
+  note: { fontSize: 13, color: '#666', background: '#f5f5f5', padding: 16, borderRadius: 6 },
+  link: { color: '#1a1a1a' },
 };
