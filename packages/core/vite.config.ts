@@ -13,11 +13,12 @@ export default defineConfig({
     sourcemap: true,
     minify: false,
     rollupOptions: {
-      external: ['nanostores', 'bitcoinjs-lib', 'sats-connect'],
+      external: ['@bitcoinerlab/secp256k1', 'bitcoinjs-lib', 'nanostores', 'sats-connect'],
       output: {
         globals: {
-          nanostores: 'nanostores',
+          '@bitcoinerlab/secp256k1': 'ecc',
           'bitcoinjs-lib': 'bitcoin',
+          nanostores: 'nanostores',
           'sats-connect': 'SatsConnect',
         },
       },

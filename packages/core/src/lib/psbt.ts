@@ -1,3 +1,4 @@
+import * as ecc from '@bitcoinerlab/secp256k1';
 import * as bitcoin from 'bitcoinjs-lib';
 import {
   MAINNET,
@@ -8,6 +9,10 @@ import {
   TESTNET4,
 } from '../constants/networks';
 import type { InputToSign } from '../types/psbt';
+
+// bitcoinjs-lib 7.x requires an ECC library to encode/decode taproot (P2TR) scripts.
+// Initialize once at module load; without this, address ops on `bc1p...` throw.
+bitcoin.initEccLib(ecc);
 
 /**
  * Maps our `NetworkType` to a `bitcoinjs-lib` Network object. Testnet, testnet4 and
@@ -51,23 +56,45 @@ export function deriveInputsToSign(
     const input = psbt.data.inputs[index];
     if (!input) continue;
 
+    // Propagate the PSBT input's sighash type onto the derived InputToSign so providers
+    // that need to pass `sigHash` out-of-band (e.g. Xverse's legacy bulk RPC) can.
+    const sighashTypes = input.sighashType !== undefined ? [input.sighashType] : undefined;
+
     if (!input.witnessUtxo) {
       // Non-segwit input — attribute to the payment address.
-      result.push({ index, address: options.paymentAddress });
+      result.push({
+        index,
+        address: options.paymentAddress,
+        ...(sighashTypes ? { sighashTypes } : {}),
+      });
       continue;
     }
 
     let address: string;
     try {
       address = bitcoin.address.fromOutputScript(input.witnessUtxo.script, network);
-    } catch {
+    } catch (err) {
+      // Non-standard script we can't decode. Surface it so a silent-skip never hides
+      // a real signing problem downstream.
+      console.warn(
+        `[sighash] deriveInputsToSign: could not decode address for input ${index}; skipping`,
+        err instanceof Error ? err.message : err,
+      );
       continue;
     }
 
     if (address === options.ordinalsAddress) {
-      result.push({ index, address: options.ordinalsAddress });
+      result.push({
+        index,
+        address: options.ordinalsAddress,
+        ...(sighashTypes ? { sighashTypes } : {}),
+      });
     } else if (address === options.paymentAddress) {
-      result.push({ index, address: options.paymentAddress });
+      result.push({
+        index,
+        address: options.paymentAddress,
+        ...(sighashTypes ? { sighashTypes } : {}),
+      });
     }
   }
 
