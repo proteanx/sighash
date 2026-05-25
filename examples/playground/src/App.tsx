@@ -5,6 +5,7 @@ import {
   type SighashConfig,
   UNISAT,
   XVERSE,
+  okxProvider,
   unisatProvider,
   xverseProvider,
 } from '@sighash/core';
@@ -13,7 +14,7 @@ import { useState } from 'react';
 
 const SIGHASH_CONFIG: SighashConfig = {
   network: 'mainnet',
-  providers: [unisatProvider(), xverseProvider()],
+  providers: [unisatProvider(), xverseProvider(), okxProvider()],
 };
 
 export function App() {
@@ -150,10 +151,10 @@ function Playground() {
                 installUrl="https://www.xverse.app/download"
               />
               <ConnectButton
-                label="OKX (coming)"
+                label="OKX"
                 installed={hasOkx}
                 onConnect={handleConnect(OKX)}
-                disabled
+                disabled={isConnecting}
                 installUrl="https://www.okx.com/web3"
               />
             </>
