@@ -1,3 +1,4 @@
+import * as bitcoin from 'bitcoinjs-lib';
 import { listenKeys } from 'nanostores';
 import {
   type AccountChangeEvent,
@@ -21,7 +22,12 @@ import {
 import { BIP322, ECDSA } from '../constants/signing-protocol';
 import { XVERSE } from '../constants/wallets';
 import { base64ToHex } from '../lib/encoding';
-import { deriveInputsToSign, inputsToSignRecord, toXverseInputsToSign } from '../lib/psbt';
+import {
+  deriveInputsToSign,
+  getBitcoinJsNetwork,
+  inputsToSignRecord,
+  toXverseInputsToSign,
+} from '../lib/psbt';
 import type { WalletCapabilities } from '../types/capabilities';
 import type {
   InputToSign,
@@ -261,11 +267,7 @@ export class XverseProvider extends WalletProvider {
       throw new Error(`Xverse signPsbt failed: ${response.error.message}`);
     }
 
-    const signedBase64 = response.result.psbt;
-    const signed: SignedPsbt = {
-      signedPsbtBase64: signedBase64,
-      signedPsbtHex: base64ToHex(signedBase64),
-    };
+    const signed = this.normalizeSignedPsbt(response.result.psbt);
     if (response.result.txid) {
       signed.txId = response.result.txid;
     }
@@ -321,10 +323,7 @@ export class XverseProvider extends WalletProvider {
               if (!r) {
                 throw new Error(`Xverse returned an empty result at index ${i}`);
               }
-              const entry: SignedPsbt = {
-                signedPsbtBase64: r.psbtBase64,
-                signedPsbtHex: base64ToHex(r.psbtBase64),
-              };
+              const entry = this.normalizeSignedPsbt(r.psbtBase64);
               if (r.txId) {
                 entry.txId = r.txId;
               }
@@ -366,6 +365,30 @@ export class XverseProvider extends WalletProvider {
     const response = await request('wallet_getNetwork', null);
     if (response.status !== 'success') return undefined;
     return networkFromBitcoinNetworkType(response.result.bitcoin.name);
+  }
+
+  /**
+   * Round-trips Xverse's response PSBT through `bitcoinjs-lib` so we emit a canonical
+   * byte form. Xverse's raw output occasionally contains key ordering or unknown-field
+   * placements that downstream verifiers (e.g. ARKAiD's backend, which uses
+   * bitcoinjs-lib) don't accept verbatim. The bytes are semantically identical — the
+   * normalization just matches the encoder both ends speak.
+   */
+  private normalizeSignedPsbt(signedBase64: string): SignedPsbt {
+    const network = getBitcoinJsNetwork(this.$network.get());
+    try {
+      const psbt = bitcoin.Psbt.fromBase64(signedBase64, { network });
+      return {
+        signedPsbtBase64: psbt.toBase64(),
+        signedPsbtHex: psbt.toHex(),
+      };
+    } catch {
+      // If bitcoinjs-lib can't parse it (truly malformed), fall back to byte-transcoding.
+      return {
+        signedPsbtBase64: signedBase64,
+        signedPsbtHex: base64ToHex(signedBase64),
+      };
+    }
   }
 
   /**
