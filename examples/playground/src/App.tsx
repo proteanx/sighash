@@ -11,6 +11,11 @@ import {
 } from '@sighash/core';
 import { SIGHASH_REACT_VERSION, SighashProvider, useSighash } from '@sighash/react';
 import { useState } from 'react';
+import {
+  type SignedPsbtSummary,
+  buildListingFixturePsbt,
+  summarizeSignedPsbt,
+} from './listing-fixture';
 
 const SIGHASH_CONFIG: SighashConfig = {
   network: 'mainnet',
@@ -24,10 +29,6 @@ export function App() {
     </SighashProvider>
   );
 }
-
-// Minimally well-formed PSBT (psbt magic + empty unsigned tx) — used only to exercise
-// the request/response wiring end-to-end. Not signable.
-const SAMPLE_PSBT_HEX = '70736274ff01000000000000000000';
 
 function Playground() {
   const {
@@ -47,13 +48,19 @@ function Playground() {
     connect,
     disconnect,
     signMessage,
+    signPsbt,
     signPsbts,
   } = useSighash();
 
   const [lastSignature, setLastSignature] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
-  const [bulkResult, setBulkResult] = useState<number | null>(null);
+  const [singleSignResult, setSingleSignResult] = useState<
+    SignedPsbtSummary | { error: string } | null
+  >(null);
+  const [bulkSignResults, setBulkSignResults] = useState<Array<
+    SignedPsbtSummary | { error: string }
+  > | null>(null);
 
   const capabilities = connected && provider ? client?.capabilities(provider) : undefined;
 
@@ -77,14 +84,35 @@ function Playground() {
     setLastSignature(sig);
   });
 
+  const buildFixturePsbt = () =>
+    buildListingFixturePsbt({
+      ordinalsAddress: address,
+      paymentAddress,
+      ordinalsPublicKey: publicKey,
+    });
+
+  const handleSignListing = wrap(async () => {
+    setSingleSignResult(null);
+    const psbtBase64 = buildFixturePsbt();
+    const result = await signPsbt(psbtBase64);
+    if (!result?.signedPsbtBase64) {
+      setSingleSignResult({ error: 'No signedPsbtBase64 in response' });
+      return;
+    }
+    setSingleSignResult(summarizeSignedPsbt(result.signedPsbtBase64));
+  });
+
   const handleBulkSign = wrap(async () => {
-    setBulkResult(null);
+    setBulkSignResults(null);
     setBulkProgress({ done: 0, total: 3 });
+    const psbts = [buildFixturePsbt(), buildFixturePsbt(), buildFixturePsbt()];
     const result = await signPsbts({
-      psbts: [SAMPLE_PSBT_HEX, SAMPLE_PSBT_HEX, SAMPLE_PSBT_HEX],
+      psbts,
       onProgress: (done, total) => setBulkProgress({ done, total }),
     });
-    setBulkResult(result.signedPsbts.length);
+    setBulkSignResults(
+      result.signedPsbts.map((s) => summarizeSignedPsbt(s.signedPsbtBase64 ?? '')),
+    );
   });
 
   return (
@@ -176,12 +204,22 @@ function Playground() {
 
           <button
             type="button"
+            onClick={handleSignListing}
+            disabled={!connected}
+            style={styles.button}
+            title="Sign a single listing-shaped PSBT (sighashType=0x83, fake outpoint, real wallet address). Verifies tapKeySig lands on input 0."
+          >
+            Sign listing PSBT
+          </button>
+
+          <button
+            type="button"
             onClick={handleBulkSign}
             disabled={!connected}
             style={styles.button}
-            title="Bulk-sign 3 PSBTs with finalize: false"
+            title="Bulk-sign 3 listing-shaped PSBTs with finalize: false"
           >
-            Sign 3 PSBTs (bulk, no finalize)
+            Sign 3 listing PSBTs (bulk)
           </button>
         </div>
 
@@ -197,17 +235,27 @@ function Playground() {
           </p>
         )}
 
-        {bulkProgress && bulkResult === null && (
+        {bulkProgress && bulkSignResults === null && (
           <p style={styles.result}>
             Signing {bulkProgress.done} / {bulkProgress.total}…
           </p>
         )}
 
-        {bulkResult !== null && (
-          <p style={styles.result}>
-            <strong>Bulk signed:</strong> {bulkResult} PSBTs returned via{' '}
-            {capabilities?.bulkSign === 'native' ? 'native bulk RPC' : 'sequential fallback'}
-          </p>
+        {singleSignResult && (
+          <div style={styles.result}>
+            <strong>Single listing-sign result:</strong>
+            <pre style={styles.pre}>{JSON.stringify(singleSignResult, null, 2)}</pre>
+          </div>
+        )}
+
+        {bulkSignResults && (
+          <div style={styles.result}>
+            <strong>
+              Bulk listing-sign result ({bulkSignResults.length} PSBTs via{' '}
+              {capabilities?.bulkSign === 'native' ? 'native bulk RPC' : 'sequential fallback'}):
+            </strong>
+            <pre style={styles.pre}>{JSON.stringify(bulkSignResults, null, 2)}</pre>
+          </div>
         )}
       </section>
     </main>
@@ -293,4 +341,12 @@ const styles = {
     textDecoration: 'none',
   },
   result: { marginTop: 12, fontSize: 13, fontFamily: 'ui-monospace, monospace' },
+  pre: {
+    background: '#f5f5f5',
+    padding: 12,
+    borderRadius: 6,
+    fontSize: 12,
+    overflowX: 'auto' as const,
+    margin: '6px 0 0',
+  },
 };
