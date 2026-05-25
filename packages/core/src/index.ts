@@ -13,6 +13,13 @@ export {
   isHex,
   resolvePsbtFormats,
 } from './lib/encoding';
+export {
+  deriveInputsToSign,
+  getBitcoinJsNetwork,
+  inputsToSignRecord,
+  toXverseInputsToSign,
+  type XverseInputToSign,
+} from './lib/psbt';
 export * from './providers';
 export { createInitialStore, createStores, type Stores } from './store';
 export * from './types';

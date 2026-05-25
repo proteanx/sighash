@@ -1,10 +1,19 @@
-import { SIGHASH_CORE_VERSION, type SighashConfig, UNISAT, unisatProvider } from '@sighash/core';
+import {
+  OKX,
+  type ProviderType,
+  SIGHASH_CORE_VERSION,
+  type SighashConfig,
+  UNISAT,
+  XVERSE,
+  unisatProvider,
+  xverseProvider,
+} from '@sighash/core';
 import { SIGHASH_REACT_VERSION, SighashProvider, useSighash } from '@sighash/react';
 import { useState } from 'react';
 
 const SIGHASH_CONFIG: SighashConfig = {
   network: 'mainnet',
-  providers: [unisatProvider()],
+  providers: [unisatProvider(), xverseProvider()],
 };
 
 export function App() {
@@ -15,9 +24,8 @@ export function App() {
   );
 }
 
-// PSBT magic (`psbt\xff`) + unsigned-tx header that's minimally well-formed enough for
-// UniSat's RPC to accept and round-trip in dev. Not signable — used only to exercise
-// our request/response wiring end-to-end in the playground.
+// Minimally well-formed PSBT (psbt magic + empty unsigned tx) — used only to exercise
+// the request/response wiring end-to-end. Not signable.
 const SAMPLE_PSBT_HEX = '70736274ff01000000000000000000';
 
 function Playground() {
@@ -32,6 +40,8 @@ function Playground() {
     paymentPublicKey,
     network,
     hasUnisat,
+    hasXverse,
+    hasOkx,
     client,
     connect,
     disconnect,
@@ -44,7 +54,7 @@ function Playground() {
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [bulkResult, setBulkResult] = useState<number | null>(null);
 
-  const capabilities = connected ? client?.capabilities(UNISAT) : undefined;
+  const capabilities = connected && provider ? client?.capabilities(provider) : undefined;
 
   const wrap = (fn: () => Promise<void>) => async () => {
     setLastError(null);
@@ -55,9 +65,10 @@ function Playground() {
     }
   };
 
-  const handleConnect = wrap(async () => {
-    await connect(UNISAT);
-  });
+  const handleConnect = (target: ProviderType) =>
+    wrap(async () => {
+      await connect(target);
+    });
 
   const handleSignMessage = wrap(async () => {
     setLastSignature(null);
@@ -68,11 +79,8 @@ function Playground() {
   const handleBulkSign = wrap(async () => {
     setBulkResult(null);
     setBulkProgress({ done: 0, total: 3 });
-    const psbts = [SAMPLE_PSBT_HEX, SAMPLE_PSBT_HEX, SAMPLE_PSBT_HEX];
     const result = await signPsbts({
-      psbts,
-      // Default: finalize: false — bulk-signed PSBTs come back unfinalized, matching the
-      // single-sign behavior so partial-sign flows (e.g. marketplace listings) work.
+      psbts: [SAMPLE_PSBT_HEX, SAMPLE_PSBT_HEX, SAMPLE_PSBT_HEX],
       onProgress: (done, total) => setBulkProgress({ done, total }),
     });
     setBulkResult(result.signedPsbts.length);
@@ -96,6 +104,8 @@ function Playground() {
           <Row label="provider" value={provider ?? '—'} />
           <Row label="network" value={network} />
           <Row label="hasUnisat" value={String(hasUnisat)} />
+          <Row label="hasXverse" value={String(hasXverse)} />
+          <Row label="hasOkx" value={String(hasOkx)} />
           <Row label="address" value={address || '—'} />
           <Row label="paymentAddress" value={paymentAddress || '—'} />
           <Row label="publicKey" value={publicKey ? `${publicKey.slice(0, 16)}…` : '—'} />
@@ -117,30 +127,50 @@ function Playground() {
       </section>
 
       <section style={styles.section}>
-        <h2 style={styles.h2}>Actions</h2>
+        <h2 style={styles.h2}>Connect</h2>
         <div style={styles.row}>
           {connected ? (
             <button type="button" onClick={disconnect} style={styles.button}>
-              Disconnect
+              Disconnect ({provider})
             </button>
           ) : (
-            <button
-              type="button"
-              onClick={handleConnect}
-              disabled={isConnecting || !hasUnisat}
-              style={styles.button}
-            >
-              {isConnecting ? 'Connecting…' : hasUnisat ? 'Connect UniSat' : 'UniSat not detected'}
-            </button>
+            <>
+              <ConnectButton
+                label="UniSat"
+                installed={hasUnisat}
+                onConnect={handleConnect(UNISAT)}
+                disabled={isConnecting}
+                installUrl="https://unisat.io/download"
+              />
+              <ConnectButton
+                label="Xverse"
+                installed={hasXverse}
+                onConnect={handleConnect(XVERSE)}
+                disabled={isConnecting}
+                installUrl="https://www.xverse.app/download"
+              />
+              <ConnectButton
+                label="OKX (coming)"
+                installed={hasOkx}
+                onConnect={handleConnect(OKX)}
+                disabled
+                installUrl="https://www.okx.com/web3"
+              />
+            </>
           )}
+        </div>
+      </section>
 
+      <section style={styles.section}>
+        <h2 style={styles.h2}>Actions</h2>
+        <div style={styles.row}>
           <button
             type="button"
             onClick={handleSignMessage}
             disabled={!connected}
             style={styles.button}
           >
-            Sign message (ECDSA)
+            Sign message
           </button>
 
           <button
@@ -148,7 +178,7 @@ function Playground() {
             onClick={handleBulkSign}
             disabled={!connected}
             style={styles.button}
-            title="Calls signPsbts with finalize: false — partial signatures preserved."
+            title="Bulk-sign 3 PSBTs with finalize: false"
           >
             Sign 3 PSBTs (bulk, no finalize)
           </button>
@@ -174,24 +204,39 @@ function Playground() {
 
         {bulkResult !== null && (
           <p style={styles.result}>
-            <strong>Bulk signed:</strong> {bulkResult} PSBTs returned (single wallet prompt via
-            UniSat native bulk RPC)
+            <strong>Bulk signed:</strong> {bulkResult} PSBTs returned via{' '}
+            {capabilities?.bulkSign === 'native' ? 'native bulk RPC' : 'sequential fallback'}
           </p>
         )}
       </section>
-
-      {!hasUnisat && (
-        <section style={styles.section}>
-          <p style={styles.note}>
-            UniSat extension not detected. Install from{' '}
-            <a href="https://unisat.io/download" style={styles.link}>
-              unisat.io/download
-            </a>{' '}
-            and refresh.
-          </p>
-        </section>
-      )}
     </main>
+  );
+}
+
+function ConnectButton({
+  label,
+  installed,
+  onConnect,
+  disabled,
+  installUrl,
+}: {
+  label: string;
+  installed: boolean;
+  onConnect: () => Promise<void>;
+  disabled?: boolean;
+  installUrl: string;
+}) {
+  if (!installed) {
+    return (
+      <a href={installUrl} style={styles.installLink} target="_blank" rel="noopener noreferrer">
+        Install {label}
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onConnect} disabled={disabled} style={styles.button}>
+      Connect {label}
+    </button>
   );
 }
 
@@ -237,7 +282,14 @@ const styles = {
     cursor: 'pointer',
     fontSize: 14,
   },
+  installLink: {
+    padding: '8px 16px',
+    background: '#f5f5f5',
+    color: '#666',
+    border: '1px solid #ddd',
+    borderRadius: 6,
+    fontSize: 14,
+    textDecoration: 'none',
+  },
   result: { marginTop: 12, fontSize: 13, fontFamily: 'ui-monospace, monospace' },
-  note: { fontSize: 13, color: '#666', background: '#f5f5f5', padding: 16, borderRadius: 6 },
-  link: { color: '#1a1a1a' },
 };

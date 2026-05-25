@@ -23,6 +23,10 @@
     "test:watch": "vitest",
     "clean": "rimraf dist .turbo *.tsbuildinfo"
   },
+  "dependencies": {
+    "bitcoinjs-lib": "catalog:",
+    "sats-connect": "catalog:"
+  },
   "peerDependencies": {
     "nanostores": ">=0.11"
   },

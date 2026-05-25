@@ -8,3 +8,4 @@ export {
   type UnisatSignOptions,
   type UnisatToSignInput,
 } from './unisat';
+export { xverseProvider, XverseProvider } from './xverse';
