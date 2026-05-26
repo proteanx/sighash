@@ -232,11 +232,26 @@ export class OkxProvider extends WalletProvider {
     const signOpts = buildOkxSignOptions(options.finalize, flatInputs);
     const psbtHexs = options.psbts.map((p) => p.psbtHex);
 
-    const signedHexs = await bulkFn.call(lib, psbtHexs, signOpts);
+    let signedHexs: string[];
+    try {
+      signedHexs = await bulkFn.call(lib, psbtHexs, signOpts);
+    } catch (err) {
+      if (isUserRejection(err)) {
+        throw new Error('User rejected the OKX bulk-sign request');
+      }
+      // OKX's bulk RPC threw for some other reason — could be a wallet build that
+      // exposes the method name but doesn't actually implement it, an unexpected
+      // payload shape, etc. Surface a useful error and transparently fall back to the
+      // single-sign loop so the user can still complete the batch.
+      console.warn(
+        `[sighash] OKX bulk-sign RPC failed; falling back to sequential signPsbt loop. Original wallet error: ${formatWalletError(err)}`,
+      );
+      return super.signPsbts(options);
+    }
 
-    if (signedHexs.length !== psbtHexs.length) {
+    if (!Array.isArray(signedHexs) || signedHexs.length !== psbtHexs.length) {
       throw new Error(
-        `OKX returned ${signedHexs.length} signed PSBTs for ${psbtHexs.length} inputs`,
+        `OKX returned an unexpected bulk-sign result: ${formatWalletError(signedHexs)}`,
       );
     }
 
@@ -317,6 +332,46 @@ function toOkxInput(input: InputToSign): OkxToSignInput {
   if (input.publicKey !== undefined) out.publicKey = input.publicKey;
   if (input.sighashTypes !== undefined) out.sighashTypes = input.sighashTypes;
   return out;
+}
+
+/**
+ * OKX (like every EIP-1193-ish wallet) sometimes rejects with a plain object instead of
+ * a real `Error`. Pull a useful string out of whatever the wallet threw.
+ */
+function formatWalletError(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message || err.name;
+  }
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const obj = err as { message?: unknown; error?: unknown; code?: unknown };
+    if (typeof obj.message === 'string' && obj.message.length > 0) return obj.message;
+    if (typeof obj.error === 'string' && obj.error.length > 0) return obj.error;
+    if (typeof obj.code === 'number' || typeof obj.code === 'string') {
+      return `code ${obj.code}`;
+    }
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return Object.prototype.toString.call(err);
+    }
+  }
+  return String(err);
+}
+
+function isUserRejection(err: unknown): boolean {
+  if (err instanceof Error) {
+    return /reject|cancel|user.+denied|user.+declined/i.test(err.message);
+  }
+  if (err && typeof err === 'object') {
+    const obj = err as { code?: number | string; message?: string };
+    // EIP-1193 rejection code is 4001; some wallets use -32000.
+    if (obj.code === 4001 || obj.code === -32000 || obj.code === '4001') return true;
+    if (typeof obj.message === 'string') {
+      return /reject|cancel|user.+denied|user.+declined/i.test(obj.message);
+    }
+  }
+  return false;
 }
 
 /** Factory for {@link OkxProvider}. Pass to {@link SighashConfig.providers}. */

@@ -304,8 +304,59 @@ describe('OkxProvider.signPsbts — native bulk path', () => {
     await client.connect(OKX);
     mainnetLib.signPsbts.mockResolvedValueOnce(['ab01']);
     await expect(client.signPsbts({ psbts: ['70736274ff', '70736274ff01'] })).rejects.toThrow(
-      /returned 1 signed PSBTs for 2 inputs/,
+      /unexpected bulk-sign result/,
     );
+  });
+
+  it('formats Error-style wallet rejections clearly', async () => {
+    const { client } = makeClient();
+    await client.connect(OKX);
+    mainnetLib.signPsbts.mockRejectedValueOnce(new Error('User rejected the request'));
+    await expect(client.signPsbts({ psbts: ['70736274ff'] })).rejects.toThrow(
+      /User rejected the OKX bulk-sign request/,
+    );
+  });
+
+  it('detects EIP-1193 code-4001 rejections from plain object errors', async () => {
+    const { client } = makeClient();
+    await client.connect(OKX);
+    mainnetLib.signPsbts.mockRejectedValueOnce({ code: 4001, message: 'User denied' });
+    await expect(client.signPsbts({ psbts: ['70736274ff'] })).rejects.toThrow(
+      /User rejected the OKX bulk-sign request/,
+    );
+  });
+});
+
+describe('OkxProvider.signPsbts — fallback on bulk-rpc errors', () => {
+  it('falls back to sequential when bulk throws a non-rejection object error', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { client } = makeClient();
+    await client.connect(OKX);
+    // OKX wallets sometimes reject with a bare object — our code used to surface this
+    // as "Error: [object Object]". Now it should warn and fall back to sequential.
+    mainnetLib.signPsbts.mockRejectedValueOnce({
+      message: 'signPsbts not supported on this build',
+    });
+
+    const result = await client.signPsbts({ psbts: ['70736274ff', '70736274ff01'] });
+
+    expect(mainnetLib.signPsbt).toHaveBeenCalledTimes(2);
+    expect(result.signedPsbts).toHaveLength(2);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('falling back to sequential'));
+    warnSpy.mockRestore();
+  });
+
+  it('falls back to sequential when bulk throws a generic non-rejection Error', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { client } = makeClient();
+    await client.connect(OKX);
+    mainnetLib.signPsbts.mockRejectedValueOnce(new Error('Internal wallet error'));
+
+    const result = await client.signPsbts({ psbts: ['70736274ff'] });
+
+    expect(mainnetLib.signPsbt).toHaveBeenCalledTimes(1);
+    expect(result.signedPsbts).toHaveLength(1);
+    warnSpy.mockRestore();
   });
 });
 
