@@ -61,6 +61,7 @@ function Playground() {
   const [bulkSignResults, setBulkSignResults] = useState<Array<
     SignedPsbtSummary | { error: string }
   > | null>(null);
+  const [bulkSignPath, setBulkSignPath] = useState<'native' | 'sequential' | null>(null);
 
   const capabilities = connected && provider ? client?.capabilities(provider) : undefined;
 
@@ -104,12 +105,14 @@ function Playground() {
 
   const handleBulkSign = wrap(async () => {
     setBulkSignResults(null);
+    setBulkSignPath(null);
     setBulkProgress({ done: 0, total: 3 });
     const psbts = [buildFixturePsbt(), buildFixturePsbt(), buildFixturePsbt()];
     const result = await signPsbts({
       psbts,
       onProgress: (done, total) => setBulkProgress({ done, total }),
     });
+    setBulkSignPath(result.signingPath);
     setBulkSignResults(
       result.signedPsbts.map((s) => summarizeSignedPsbt(s.signedPsbtBase64 ?? '')),
     );
@@ -251,8 +254,15 @@ function Playground() {
         {bulkSignResults && (
           <div style={styles.result}>
             <strong>
-              Bulk listing-sign result ({bulkSignResults.length} PSBTs via{' '}
-              {capabilities?.bulkSign === 'native' ? 'native bulk RPC' : 'sequential fallback'}):
+              Bulk listing-sign result ({bulkSignResults.length} PSBTs · actually ran via{' '}
+              <code>{bulkSignPath ?? 'unknown'}</code>
+              {capabilities && bulkSignPath && capabilities.bulkSign !== bulkSignPath && (
+                <span style={{ color: '#c80' }}>
+                  {' '}
+                  (capabilities advertised <code>{capabilities.bulkSign}</code>; runtime fell back)
+                </span>
+              )}
+              ):
             </strong>
             <pre style={styles.pre}>{JSON.stringify(bulkSignResults, null, 2)}</pre>
           </div>

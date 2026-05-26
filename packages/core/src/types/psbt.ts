@@ -56,6 +56,14 @@ export type SignPsbtResponse = SignedPsbt;
 
 export interface SignPsbtsResponse {
   signedPsbts: SignedPsbt[];
+  /**
+   * Which path actually ran. `'native'` = one wallet prompt covering all PSBTs via the
+   * wallet's bulk RPC. `'sequential'` = one prompt per PSBT through `signPsbt` — either
+   * because the wallet doesn't expose a bulk RPC, or because we fell back after the
+   * bulk call failed. Consumers can use this to decide whether to show "N prompts
+   * coming" hints or to track which wallets actually deliver the one-prompt UX.
+   */
+  signingPath: 'native' | 'sequential';
 }
 
 /**

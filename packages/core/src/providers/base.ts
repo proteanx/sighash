@@ -116,7 +116,7 @@ export abstract class WalletProvider {
       signedPsbts.push(signed);
       onProgress?.(i + 1, psbts.length);
     }
-    return { signedPsbts };
+    return { signedPsbts, signingPath: 'sequential' };
   }
 
   /**

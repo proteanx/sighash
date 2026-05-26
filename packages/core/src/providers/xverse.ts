@@ -330,7 +330,7 @@ export class XverseProvider extends WalletProvider {
               signedPsbts.push(entry);
               options.onProgress?.(i + 1, response.length);
             }
-            resolve({ signedPsbts });
+            resolve({ signedPsbts, signingPath: 'native' });
           } catch (error) {
             reject(error);
           }

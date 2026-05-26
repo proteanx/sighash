@@ -272,7 +272,7 @@ export class OkxProvider extends WalletProvider {
       options.onProgress?.(i + 1, signedHexs.length);
     }
 
-    return { signedPsbts };
+    return { signedPsbts, signingPath: 'native' };
   }
 
   override async pushPsbt(txHexOrBase64: string): Promise<string | undefined> {
