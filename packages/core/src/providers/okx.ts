@@ -68,6 +68,10 @@ export interface OkxConnectResult {
  * Minimal shape of OKX's injected Bitcoin provider. Methods we may invoke conditionally
  * (`signPsbts`, `signMultiplePsbts`, `pushPsbt`, `getNetwork`) are declared optional —
  * older OKX builds may not expose them.
+ *
+ * The bulk-sign `options` parameter is typed as `OkxSignOptions[]` — OKX's bulk RPC
+ * (mirroring its offline `@okxweb3/coin-bitcoin` SDK) expects per-PSBT options, one
+ * entry per PSBT in the batch, *not* the single shared options that UniSat accepts.
  */
 export interface OkxLibrary {
   connect(): Promise<OkxConnectResult>;
@@ -77,8 +81,8 @@ export interface OkxLibrary {
   getNetwork?(): Promise<string>;
   signMessage(message: string, type?: string): Promise<string>;
   signPsbt(psbtHex: string, options?: OkxSignOptions): Promise<string>;
-  signPsbts?(psbtHexs: string[], options?: OkxSignOptions): Promise<string[]>;
-  signMultiplePsbts?(psbtHexs: string[], options?: OkxSignOptions): Promise<string[]>;
+  signPsbts?(psbtHexs: string[], options?: OkxSignOptions[]): Promise<string[]>;
+  signMultiplePsbts?(psbtHexs: string[], options?: OkxSignOptions[]): Promise<string[]>;
   pushPsbt?(psbtHex: string): Promise<string>;
 }
 
@@ -229,12 +233,20 @@ export class OkxProvider extends WalletProvider {
     }
 
     const flatInputs = inputs as InputToSign[] | undefined;
-    const signOpts = buildOkxSignOptions(options.finalize, flatInputs);
+    const sharedSignOpts = buildOkxSignOptions(options.finalize, flatInputs);
     const psbtHexs = options.psbts.map((p) => p.psbtHex);
+    // OKX's bulk RPC expects a per-PSBT options array, mirroring its offline SDK's
+    // `signPsbtWithKeyPathAndScriptPathBatch(psbts, key, network, opts?: signPsbtOptions[])`.
+    // Passing the single shared options object instead caused
+    // `((intermediate value) || []).map is not a function` inside the wallet — OKX
+    // expected `options.map(...)`. Replicate the shared opts across positions; callers
+    // wanting truly per-PSBT inputs go through the sequential path via nested
+    // `inputsToSign`.
+    const perPsbtSignOpts = psbtHexs.map(() => sharedSignOpts);
 
     let signedHexs: string[];
     try {
-      signedHexs = await bulkFn.call(lib, psbtHexs, signOpts);
+      signedHexs = await bulkFn.call(lib, psbtHexs, perPsbtSignOpts);
     } catch (err) {
       if (isUserRejection(err)) {
         throw new Error('User rejected the OKX bulk-sign request');

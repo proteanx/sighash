@@ -263,15 +263,32 @@ describe('OkxProvider.signPsbts — native bulk path', () => {
     expect(mainnetLib.signMultiplePsbts).toHaveBeenCalledTimes(1);
   });
 
-  it('passes autoFinalized: false by default and the flat inputsToSign once', async () => {
+  it('passes per-PSBT options array (matching OKX SDK shape), one entry per PSBT', async () => {
     const { client } = makeClient();
     await client.connect(OKX);
     const inputs: InputToSign[] = [{ index: 0, address: 'addr', sighashTypes: [0x81] }];
-    await client.signPsbts({ psbts: ['70736274ff'], inputsToSign: inputs });
-    expect(mainnetLib.signPsbts).toHaveBeenCalledWith(['70736274ff'], {
+    await client.signPsbts({
+      psbts: ['70736274ff', '70736274ff01'],
+      inputsToSign: inputs,
+    });
+    const expectedOpts = {
       autoFinalized: false,
       toSignInputs: [{ index: 0, address: 'addr', sighashTypes: [0x81] }],
-    });
+    };
+    expect(mainnetLib.signPsbts).toHaveBeenCalledWith(
+      ['70736274ff', '70736274ff01'],
+      [expectedOpts, expectedOpts],
+    );
+  });
+
+  it('replicates `autoFinalized: false` across all per-PSBT options when finalize omitted', async () => {
+    const { client } = makeClient();
+    await client.connect(OKX);
+    await client.signPsbts({ psbts: ['70736274ff', '70736274ff01', '70736274ff02'] });
+    expect(mainnetLib.signPsbts).toHaveBeenCalledWith(
+      ['70736274ff', '70736274ff01', '70736274ff02'],
+      [{ autoFinalized: false }, { autoFinalized: false }, { autoFinalized: false }],
+    );
   });
 
   it('returns one SignedPsbt per input PSBT with hex + base64', async () => {
