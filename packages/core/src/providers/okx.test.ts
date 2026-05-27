@@ -409,7 +409,7 @@ describe('OkxProvider.signPsbts — sequential fallback', () => {
 });
 
 describe('OkxProvider.pushPsbt + getNetwork', () => {
-  it('pushPsbt forwards to library.pushPsbt', async () => {
+  it('pushPsbt forwards to library.pushPsbt when present', async () => {
     const { client } = makeClient();
     await client.connect(OKX);
     const tx = await client.pushPsbt('hex-payload');
@@ -417,11 +417,61 @@ describe('OkxProvider.pushPsbt + getNetwork', () => {
     expect(tx).toBe('mock-txid');
   });
 
-  it('pushPsbt throws when library lacks the method', async () => {
+  it('pushPsbt falls back to mempool.space when library lacks the method', async () => {
     Reflect.deleteProperty(mainnetLib, 'pushPsbt');
-    const { client } = makeClient();
-    await client.connect(OKX);
-    await expect(client.pushPsbt('hex-payload')).rejects.toThrow(/does not expose pushPsbt/);
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          text: async () => 'tx-id-from-mempool',
+        }) as unknown as Response,
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const { client } = makeClient();
+      await client.connect(OKX);
+      const rawTxHex = '02000000000101abcdef00';
+      const txid = await client.pushPsbt(rawTxHex);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://mempool.space/api/tx');
+      const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+      expect(init.body).toBe(rawTxHex);
+      expect(txid).toBe('tx-id-from-mempool');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('pushPsbt falls back to mempool.space when library.pushPsbt throws', async () => {
+    mainnetLib.pushPsbt.mockRejectedValueOnce(new Error('OKX broadcast unavailable'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          text: async () => 'tx-id-fallback',
+        }) as unknown as Response,
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const { client } = makeClient();
+      await client.connect(OKX);
+      const txid = await client.pushPsbt('02000000000101abcdef00');
+      expect(mainnetLib.pushPsbt).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(txid).toBe('tx-id-fallback');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('falling back to external broadcast'),
+        expect.anything(),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+      warnSpy.mockRestore();
+    }
   });
 
   it('getNetwork maps livenet to mainnet', async () => {

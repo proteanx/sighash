@@ -513,12 +513,56 @@ describe('XverseProvider.signPsbts — sequential fallback', () => {
 });
 
 describe('XverseProvider.pushPsbt', () => {
-  it('throws — Xverse has no standalone broadcast RPC', async () => {
+  it('broadcasts raw signed-tx hex via mempool.space', async () => {
     mockedRequest.mockResolvedValueOnce(successResponse(SUCCESSFUL_ACCOUNT_RESULT));
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          text: async () => 'tx-id-from-mempool',
+        }) as unknown as Response,
+    );
+    vi.stubGlobal('fetch', fetchMock);
 
-    const { client } = makeClient();
-    await client.connect(XVERSE);
-    await expect(client.pushPsbt('deadbeef')).rejects.toThrow(/standalone broadcast/i);
+    try {
+      const { client } = makeClient();
+      await client.connect(XVERSE);
+      const rawTxHex = '02000000000101abcdef00';
+      const txid = await client.pushPsbt(rawTxHex);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://mempool.space/api/tx');
+      const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+      expect(init.method).toBe('POST');
+      expect(init.body).toBe(rawTxHex);
+      expect(txid).toBe('tx-id-from-mempool');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('surfaces a useful error on broadcast failure', async () => {
+    mockedRequest.mockResolvedValueOnce(successResponse(SUCCESSFUL_ACCOUNT_RESULT));
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: false,
+          status: 400,
+          statusText: 'Bad Request',
+          text: async () => 'min relay fee not met',
+        }) as unknown as Response,
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    try {
+      const { client } = makeClient();
+      await client.connect(XVERSE);
+      await expect(client.pushPsbt('02000000aa')).rejects.toThrow(/min relay fee not met/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

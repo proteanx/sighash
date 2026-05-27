@@ -300,8 +300,17 @@ export class UnisatProvider extends WalletProvider {
 
   override async pushPsbt(txHexOrBase64: string): Promise<string | undefined> {
     const lib = this.requireLibrary();
-    // UniSat's pushPsbt accepts hex strings.
-    return lib.pushPsbt(txHexOrBase64);
+    // Prefer UniSat's wallet broadcast — typically faster and not subject to public
+    // mempool API rate limits. Fall back to mempool.space if the wallet call fails.
+    try {
+      return await lib.pushPsbt(txHexOrBase64);
+    } catch (err) {
+      console.warn(
+        '[sighash] UniSat library.pushPsbt failed; falling back to external broadcast.',
+        err instanceof Error ? err.message : err,
+      );
+      return super.pushPsbt(txHexOrBase64);
+    }
   }
 
   async switchNetwork(network: NetworkType): Promise<void> {

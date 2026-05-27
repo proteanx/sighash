@@ -341,12 +341,50 @@ describe('UnisatProvider.signPsbts — sequential fallback', () => {
 });
 
 describe('UnisatProvider.pushPsbt', () => {
-  it('forwards the hex to UniSat pushPsbt', async () => {
-    const { client } = makeClient();
-    await client.connect(UNISAT);
-    const txId = await client.pushPsbt('hex-payload');
-    expect(mockLib.pushPsbt).toHaveBeenCalledWith('hex-payload');
-    expect(txId).toBe('mock-txid');
+  it('forwards the hex to UniSat pushPsbt on the happy path (no fetch)', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const { client } = makeClient();
+      await client.connect(UNISAT);
+      const txId = await client.pushPsbt('hex-payload');
+      expect(mockLib.pushPsbt).toHaveBeenCalledWith('hex-payload');
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(txId).toBe('mock-txid');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('falls back to mempool.space when UniSat library.pushPsbt throws', async () => {
+    mockLib.pushPsbt.mockRejectedValueOnce(new Error('UniSat broadcast unavailable'));
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const fetchMock = vi.fn(
+      async () =>
+        ({
+          ok: true,
+          status: 200,
+          statusText: 'OK',
+          text: async () => 'tx-id-fallback',
+        }) as unknown as Response,
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const { client } = makeClient();
+      await client.connect(UNISAT);
+      const txid = await client.pushPsbt('02000000000101abcdef00');
+      expect(mockLib.pushPsbt).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls[0]?.[0]).toBe('https://mempool.space/api/tx');
+      expect(txid).toBe('tx-id-fallback');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('falling back to external broadcast'),
+        expect.anything(),
+      );
+    } finally {
+      vi.unstubAllGlobals();
+      warnSpy.mockRestore();
+    }
   });
 });
 

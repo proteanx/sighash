@@ -2,6 +2,7 @@ import type { MapStore, WritableAtom } from 'nanostores';
 import type { SighashClient } from '../client';
 import type { NetworkType } from '../constants/networks';
 import type { ProviderType } from '../constants/wallets';
+import { broadcastTx } from '../lib/broadcast';
 import type { WalletCapabilities } from '../types/capabilities';
 import type {
   BulkInputsToSign,
@@ -120,12 +121,16 @@ export abstract class WalletProvider {
   }
 
   /**
-   * Default broadcast implementation. Providers that support wallet-side broadcast
-   * (UniSat, OKX) should override to dispatch via the extension; otherwise consumers can
-   * configure a data-source-backed broadcaster in a later phase.
+   * Default broadcast: extracts the signed transaction from the PSBT and POSTs it to
+   * mempool.space for the active network. Accepts raw signed-tx hex, PSBT hex, or
+   * PSBT base64.
+   *
+   * Providers that prefer their wallet's native broadcast (UniSat, OKX) override this
+   * to call the extension's `pushPsbt` first and fall back here on error. Xverse —
+   * which has no standalone broadcast RPC — uses this default unchanged.
    */
-  async pushPsbt(_txHexOrBase64: string): Promise<string | undefined> {
-    throw new Error('pushPsbt is not implemented for this provider');
+  async pushPsbt(txHexOrBase64: string): Promise<string | undefined> {
+    return broadcastTx(txHexOrBase64, this.$network.get());
   }
 }
 

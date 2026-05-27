@@ -289,10 +289,18 @@ export class OkxProvider extends WalletProvider {
 
   override async pushPsbt(txHexOrBase64: string): Promise<string | undefined> {
     const lib = this.requireLibrary();
-    if (typeof lib.pushPsbt !== 'function') {
-      throw new Error('OKX does not expose pushPsbt on this build');
+    // Prefer the wallet's broadcast when present, fall back to mempool.space otherwise.
+    if (typeof lib.pushPsbt === 'function') {
+      try {
+        return await lib.pushPsbt(txHexOrBase64);
+      } catch (err) {
+        console.warn(
+          '[sighash] OKX library.pushPsbt failed; falling back to external broadcast.',
+          err instanceof Error ? err.message : err,
+        );
+      }
     }
-    return lib.pushPsbt(txHexOrBase64);
+    return super.pushPsbt(txHexOrBase64);
   }
 
   async getNetwork(): Promise<NetworkType | undefined> {

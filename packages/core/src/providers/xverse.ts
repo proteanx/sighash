@@ -342,12 +342,9 @@ export class XverseProvider extends WalletProvider {
     });
   }
 
-  override async pushPsbt(_txHexOrBase64: string): Promise<string | undefined> {
-    throw new Error(
-      'Xverse does not expose a standalone broadcast RPC. ' +
-        'Pass `broadcast: true` to `signPsbt` instead, or broadcast via your own data source.',
-    );
-  }
+  // pushPsbt: inherits the base implementation, which extracts the signed tx from
+  // the PSBT and broadcasts via mempool.space. Xverse has no standalone broadcast
+  // RPC, so the external broadcaster is the right path — same as lasereyes did.
 
   async switchNetwork(network: NetworkType): Promise<void> {
     const type = toBitcoinNetworkType(network);

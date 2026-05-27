@@ -2,6 +2,7 @@ export const SIGHASH_CORE_VERSION = '0.0.0';
 
 export * from './client';
 export * from './constants';
+export { broadcastTx } from './lib/broadcast';
 export {
   base64ToBytes,
   base64ToHex,
