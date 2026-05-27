@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import pkg from '../package.json' with { type: 'json' };
 import * as exports from './index';
 
 describe('@sighash-dev/react exports', () => {
@@ -30,7 +31,7 @@ describe('@sighash-dev/react exports', () => {
     expect(exports.useLaserEyes).toBe(exports.useSighash);
   });
 
-  it('exposes a version string', () => {
-    expect(exports.SIGHASH_REACT_VERSION).toBe('0.0.0');
+  it('exposes a version string matching package.json', () => {
+    expect(exports.SIGHASH_REACT_VERSION).toBe(pkg.version);
   });
 });
