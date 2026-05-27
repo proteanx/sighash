@@ -71,10 +71,10 @@ importers:
 
   examples/playground:
     dependencies:
-      '@sighash/core':
+      '@sighash-dev/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@sighash/react':
+      '@sighash-dev/react':
         specifier: workspace:*
         version: link:../../packages/react
       bitcoinjs-lib:
@@ -145,7 +145,7 @@ importers:
 
   packages/react:
     dependencies:
-      '@sighash/core':
+      '@sighash-dev/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

@@ -13,7 +13,7 @@ import {
   UNISAT,
   type WalletStore,
   XVERSE,
-} from '@sighash/core';
+} from '@sighash-dev/core';
 import { useCallback, useContext, useRef, useSyncExternalStore } from 'react';
 import { SighashContext } from './context';
 

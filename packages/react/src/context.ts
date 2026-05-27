@@ -1,4 +1,4 @@
-import type { SighashClient, Stores } from '@sighash/core';
+import type { SighashClient, Stores } from '@sighash-dev/core';
 import { createContext } from 'react';
 
 export interface SighashContextValue {

@@ -1,7 +1,7 @@
 {
-  "name": "@sighash/react",
+  "name": "@sighash-dev/react",
   "version": "0.0.9",
-  "description": "React bindings for @sighash/core — provider, hook, and helpers.",
+  "description": "React bindings for @sighash-dev/core — provider, hook, and helpers.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.umd.cjs",
@@ -24,14 +24,14 @@
     "clean": "rimraf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@sighash/core": "workspace:*"
+    "@sighash-dev/core": "workspace:*"
   },
   "peerDependencies": {
     "nanostores": ">=0.11",
     "react": ">=18"
   },
   "devDependencies": {
-    "@sighash/core": "workspace:*",
+    "@sighash-dev/core": "workspace:*",
     "@types/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "nanostores": "catalog:",

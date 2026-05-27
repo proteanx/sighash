@@ -1,5 +1,5 @@
 {
-  "name": "@sighash/core",
+  "name": "@sighash-dev/core",
   "version": "0.0.9",
   "description": "Framework-agnostic Bitcoin wallet connector core for Xverse, UniSat, and OKX.",
   "license": "MIT",

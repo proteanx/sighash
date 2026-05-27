@@ -39,7 +39,7 @@ Thanks for your interest in `sighash`. The repo is in active early development �
 
 - Every dep must satisfy the `minimum-release-age=10080` policy (≥ 7 days old).
 - Prefer adding to a single package; only put it in the catalog (`pnpm-workspace.yaml`) if two or more packages need it.
-- For runtime deps in `@sighash/core` and `@sighash/react`, weigh bundle size carefully — these are consumer libraries.
+- For runtime deps in `@sighash-dev/core` and `@sighash-dev/react`, weigh bundle size carefully — these are consumer libraries.
 
 ## Reporting bugs
 

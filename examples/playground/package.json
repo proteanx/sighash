@@ -1,9 +1,9 @@
 {
-  "name": "@sighash/playground",
+  "name": "@sighash-dev/playground",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Internal playground for exercising @sighash/core and @sighash/react during development.",
+  "description": "Internal playground for exercising @sighash-dev/core and @sighash-dev/react during development.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -12,8 +12,8 @@
     "clean": "rimraf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@sighash/core": "workspace:*",
-    "@sighash/react": "workspace:*",
+    "@sighash-dev/core": "workspace:*",
+    "@sighash-dev/react": "workspace:*",
     "bitcoinjs-lib": "catalog:",
     "nanostores": "catalog:",
     "react": "catalog:",

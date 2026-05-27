@@ -8,7 +8,7 @@ import {
   okxProvider,
   unisatProvider,
   xverseProvider,
-} from '@sighash/core';
+} from '@sighash-dev/core';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { SighashContext } from './context';
 

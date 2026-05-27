@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as exports from './index';
 
-describe('@sighash/react exports', () => {
+describe('@sighash-dev/react exports', () => {
   it('exports SighashProvider', () => {
     expect(typeof exports.SighashProvider).toBe('function');
   });
@@ -14,14 +14,14 @@ describe('@sighash/react exports', () => {
     expect(exports.SighashContext).toBeDefined();
   });
 
-  it('re-exports @sighash/core constants', () => {
+  it('re-exports @sighash-dev/core constants', () => {
     expect(exports.UNISAT).toBe('unisat');
     expect(exports.XVERSE).toBe('xverse');
     expect(exports.OKX).toBe('okx');
     expect(exports.MAINNET).toBe('mainnet');
   });
 
-  it('re-exports @sighash/core SighashClient', () => {
+  it('re-exports @sighash-dev/core SighashClient', () => {
     expect(typeof exports.SighashClient).toBe('function');
   });
 

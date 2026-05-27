@@ -8,8 +8,8 @@ import {
   okxProvider,
   unisatProvider,
   xverseProvider,
-} from '@sighash/core';
-import { SIGHASH_REACT_VERSION, SighashProvider, useSighash } from '@sighash/react';
+} from '@sighash-dev/core';
+import { SIGHASH_REACT_VERSION, SighashProvider, useSighash } from '@sighash-dev/react';
 import { useState } from 'react';
 import {
   type SignedPsbtSummary,
@@ -123,7 +123,7 @@ function Playground() {
       <header style={styles.header}>
         <h1 style={styles.title}>sighash playground</h1>
         <p style={styles.subtitle}>
-          @sighash/core {SIGHASH_CORE_VERSION} · @sighash/react {SIGHASH_REACT_VERSION}
+          @sighash-dev/core {SIGHASH_CORE_VERSION} · @sighash-dev/react {SIGHASH_REACT_VERSION}
         </p>
       </header>
 

@@ -3,9 +3,9 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [["@sighash/core", "@sighash/react"]],
+  "linked": [["@sighash-dev/core", "@sighash-dev/react"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@sighash/playground"]
+  "ignore": ["@sighash-dev/playground"]
 }

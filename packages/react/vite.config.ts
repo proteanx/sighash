@@ -14,13 +14,13 @@ export default defineConfig({
     sourcemap: true,
     minify: false,
     rollupOptions: {
-      external: ['react', 'react/jsx-runtime', 'nanostores', '@sighash/core'],
+      external: ['react', 'react/jsx-runtime', 'nanostores', '@sighash-dev/core'],
       output: {
         globals: {
           react: 'React',
           'react/jsx-runtime': 'jsxRuntime',
           nanostores: 'nanostores',
-          '@sighash/core': 'SighashCore',
+          '@sighash-dev/core': 'SighashCore',
         },
       },
     },

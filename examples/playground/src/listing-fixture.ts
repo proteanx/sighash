@@ -1,4 +1,4 @@
-import { hexToBytes } from '@sighash/core';
+import { hexToBytes } from '@sighash-dev/core';
 import * as bitcoin from 'bitcoinjs-lib';
 
 /**

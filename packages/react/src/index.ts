@@ -1,6 +1,6 @@
 export const SIGHASH_REACT_VERSION = '0.0.0';
 
-export * from '@sighash/core';
+export * from '@sighash-dev/core';
 export type { SighashContextValue } from './context';
 export { SighashContext } from './context';
 export type { SighashProviderProps } from './provider';
