@@ -58,14 +58,31 @@ function extractRawTxHex(input: string): string {
   }
   // PSBT hex.
   if (input.startsWith('70736274ff')) {
-    return bitcoin.Psbt.fromHex(input).extractTransaction().toHex();
+    return extractFromPsbt(bitcoin.Psbt.fromHex(input));
   }
   // PSBT base64.
   if (input.startsWith('cHNidP8')) {
-    return bitcoin.Psbt.fromBase64(input).extractTransaction().toHex();
+    return extractFromPsbt(bitcoin.Psbt.fromBase64(input));
   }
   throw new Error(
-    'broadcastTx: input is not a recognizable raw signed-tx hex or PSBT (hex/base64). ' +
-      'Make sure the PSBT was finalized (`signPsbt` with `finalize: true`).',
+    'broadcastTx: input is not a recognizable raw signed-tx hex or PSBT (hex/base64).',
   );
+}
+
+/**
+ * Extract the raw signed tx from a PSBT, auto-finalizing if needed. sighash's default
+ * is `autoFinalized: false` (so marketplace listings keep their SIGHASH_SINGLE | ACP
+ * partial-sign semantics), which means a fully-signed PSBT handed to `pushPsbt` often
+ * isn't yet finalized. We finalize transparently here so callers don't have to remember
+ * to pass `finalize: true` when they actually intend to broadcast.
+ */
+function extractFromPsbt(psbt: bitcoin.Psbt): string {
+  try {
+    return psbt.extractTransaction().toHex();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message.toLowerCase() : '';
+    if (!msg.includes('not finalized')) throw err;
+    psbt.finalizeAllInputs();
+    return psbt.extractTransaction().toHex();
+  }
 }

@@ -1,3 +1,4 @@
+import * as ecc from '@bitcoinerlab/secp256k1';
 import * as bitcoin from 'bitcoinjs-lib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MAINNET, REGTEST, SIGNET, TESTNET, TESTNET4 } from '../constants/networks';
@@ -35,13 +36,14 @@ function mockFetchError(
   return fetchMock;
 }
 
+const hexBytes = (hex: string): Uint8Array => Uint8Array.from(Buffer.from(hex, 'hex'));
+
 /**
  * Build a minimal but valid finalized PSBT so the extractor produces real tx hex.
  * Uses a single dummy P2WPKH input with an inline witnessUtxo and a single output.
  * Uses bitcoinjs-lib 7 types (Uint8Array + bigint).
  */
 function buildFinalizedPsbtHex(): string {
-  const hexBytes = (hex: string): Uint8Array => Uint8Array.from(Buffer.from(hex, 'hex'));
   const psbt = new bitcoin.Psbt();
   psbt.addInput({
     hash: '0'.repeat(64),
@@ -60,6 +62,48 @@ function buildFinalizedPsbtHex(): string {
     value: BigInt(90000),
   });
   return psbt.toHex();
+}
+
+/**
+ * Build a fully-signed-but-NOT-finalized P2WPKH PSBT — the shape sighash produces by
+ * default (`autoFinalized: false`). Used to verify that `broadcastTx` auto-finalizes
+ * transparently, matching what lasereyes did.
+ *
+ * The key here is a deterministic test secret — explicitly fake, not from any wallet.
+ */
+function buildSignedUnfinalizedPsbtBase64(): string {
+  const privateKey = hexBytes('a'.repeat(64));
+  const publicKey = ecc.pointFromScalar(privateKey, true);
+  if (!publicKey) throw new Error('test setup: failed to derive public key');
+
+  const pkh = bitcoin.crypto.hash160(publicKey);
+  const script = new Uint8Array(22);
+  script[0] = 0x00;
+  script[1] = 0x14;
+  script.set(pkh, 2);
+
+  const signer: bitcoin.Signer = {
+    publicKey,
+    sign: (hash: Uint8Array): Uint8Array => {
+      const sig = ecc.sign(hash, privateKey);
+      if (!sig) throw new Error('test setup: ecc.sign returned null');
+      return sig;
+    },
+  };
+
+  const psbt = new bitcoin.Psbt();
+  psbt.addInput({
+    hash: '0'.repeat(64),
+    index: 0,
+    witnessUtxo: { script, value: BigInt(100000) },
+  });
+  psbt.addOutput({
+    script: hexBytes(`0014${'bb'.repeat(20)}`),
+    value: BigInt(90000),
+  });
+  psbt.signInput(0, signer);
+  // Deliberately do NOT finalize — broadcastTx should handle this transparently.
+  return psbt.toBase64();
 }
 
 afterEach(() => {
@@ -134,6 +178,21 @@ describe('broadcastTx — input format extraction', () => {
     const psbtBase64 = psbt.toBase64();
     expect(psbtBase64.startsWith('cHNidP8')).toBe(true);
     await broadcastTx(psbtBase64, MAINNET);
+    const sentBody = fetchMock.mock.calls[0]?.[1]?.body as string;
+    expect(sentBody).toMatch(/^0[12]000000/);
+  });
+
+  it('auto-finalizes a signed-but-not-finalized PSBT before extracting (the splitting-tool case)', async () => {
+    const fetchMock = mockFetchOk();
+    const psbtBase64 = buildSignedUnfinalizedPsbtBase64();
+    // Sanity check: re-parse and confirm the input isn't finalized yet.
+    const beforePsbt = bitcoin.Psbt.fromBase64(psbtBase64);
+    expect(beforePsbt.data.inputs[0]?.finalScriptWitness).toBeUndefined();
+    expect(beforePsbt.data.inputs[0]?.partialSig?.length ?? 0).toBeGreaterThan(0);
+
+    await broadcastTx(psbtBase64, MAINNET);
+
+    // broadcastTx should still have produced raw tx hex (i.e. it auto-finalized).
     const sentBody = fetchMock.mock.calls[0]?.[1]?.body as string;
     expect(sentBody).toMatch(/^0[12]000000/);
   });
