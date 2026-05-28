@@ -13,6 +13,10 @@ Open-source Bitcoin wallet connector for the ordinals ecosystem.
 | [`@sighash-dev/core`](./packages/core)   | Framework-agnostic wallet client + providers |
 | [`@sighash-dev/react`](./packages/react) | React provider + `useSighash()` hook         |
 
+## Documentation
+
+- **[API reference](./docs/API.md)** — full contracts for every export: signatures, defaults, errors, and per-wallet behavior.
+
 ## Why sighash?
 
 - Existing libraries are lacking features needed for enterprise level production.

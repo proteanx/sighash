@@ -28,6 +28,8 @@ const { signedPsbts } = await client.signPsbts({ psbts: [psbt1, psbt2, psbt3] })
 
 For React, prefer [`@sighash-dev/react`](../react).
 
+**[Full API reference →](../../docs/API.md)** — every export, signature, default, and per-wallet contract.
+
 ## Key features
 
 - **Native bulk-sign where supported:** UniSat (`signPsbts`), Xverse (`signMultipleTransactions`), OKX (per-PSBT options array). One wallet prompt for N PSBTs.

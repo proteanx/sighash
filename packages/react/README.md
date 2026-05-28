@@ -26,6 +26,8 @@ function Wallet() {
 
 The three built-in providers (UniSat, Xverse, OKX) are auto-registered when `config.providers` is omitted.
 
+**[Full API reference →](../../docs/API.md)** — `useSighash()` return shape, `SighashProvider` props, and the core contracts re-exported through this package.
+
 ## Compatibility aliases
 
 For projects swapping in from lasereyes:

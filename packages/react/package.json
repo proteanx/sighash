@@ -2,7 +2,26 @@
   "name": "@sighash-dev/react",
   "version": "0.1.0",
   "description": "React bindings for @sighash-dev/core — provider, hook, and helpers.",
+  "keywords": [
+    "bitcoin",
+    "ordinals",
+    "psbt",
+    "wallet",
+    "wallet-connector",
+    "react",
+    "xverse",
+    "unisat",
+    "okx",
+    "lasereyes"
+  ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/proteanx/sighash.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/proteanx/sighash/tree/master/packages/react#readme",
+  "bugs": "https://github.com/proteanx/sighash/issues",
   "type": "module",
   "main": "./dist/index.umd.cjs",
   "module": "./dist/index.js",

@@ -16,6 +16,11 @@ export interface WalletCapabilities {
   /** Message-signing protocols the wallet accepts. */
   signMessageProtocols: readonly SigningProtocol[];
 
-  /** Whether `client.switchNetwork()` is supported. */
+  /**
+   * Whether the provider supports a programmatic network switch. `switchNetwork` is a
+   * provider-level method (not on {@link SighashClient}); reach it via
+   * `client.providers[id]`. `true` for UniSat and Xverse, `false` for OKX (which only
+   * switches network through its extension UI).
+   */
   switchNetwork: boolean;
 }

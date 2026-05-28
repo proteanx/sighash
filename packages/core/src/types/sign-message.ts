@@ -8,6 +8,11 @@ export interface SignMessageOptions {
    */
   toSignAddress?: string;
 
-  /** Signing protocol; defaults to BIP-322 simple when the wallet supports it. */
+  /**
+   * Signing protocol. When omitted, the default is **provider-specific**: UniSat and OKX
+   * default to {@link ECDSA} (matching their native default and lasereyes' behavior),
+   * while Xverse defaults to {@link BIP322}. Pass an explicit value for consistent
+   * cross-wallet output.
+   */
   protocol?: SigningProtocol;
 }
