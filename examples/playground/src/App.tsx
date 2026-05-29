@@ -16,6 +16,7 @@ import {
   buildListingFixturePsbt,
   summarizeSignedPsbt,
 } from './listing-fixture';
+import { TrackBPanel } from './option-c/Panel';
 
 const SIGHASH_CONFIG: SighashConfig = {
   network: 'mainnet',
@@ -268,6 +269,17 @@ function Playground() {
           </div>
         )}
       </section>
+
+      <TrackBPanel
+        connected={connected}
+        provider={provider}
+        network={network}
+        ordinalsAddress={address}
+        ordinalsPublicKey={publicKey}
+        paymentAddress={paymentAddress}
+        paymentPublicKey={paymentPublicKey}
+        client={client}
+      />
     </main>
   );
 }
