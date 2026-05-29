@@ -12,6 +12,7 @@ import {
   buildB5aSweep,
   buildB5bSellerBatch,
   buildB6,
+  buildKeyPathAcp,
 } from './builders';
 import { bitcoin, bytesToHex, concatBytes, ecc, generatePlatformKey, taggedHash } from './crypto';
 import { createBuildCtx } from './track-b';
@@ -141,6 +142,7 @@ export function runSelfTest(): SelfTestRow[] {
   const ctxT = ctxFor(taproot);
 
   const sellerSuite: Array<[string, (c: BuildCtx) => BuiltTest]> = [
+    ['KP-ACP', buildKeyPathAcp],
     ['B1a', buildB1a],
     ['B1b', buildB1b],
     ['B1c', buildB1c],

@@ -156,6 +156,57 @@ function verifyBuyerInput(ctx: BuildCtx, psbt: bitcoin.Psbt, index: number): Ver
 }
 
 // ---------------------------------------------------------------------------
+// KP-ACP — key-path SINGLE|ACP (the legacy single-sig listing baseline) (SHARED)
+// Diagnoses whether a wallet honors a non-default sighash AT ALL: this is a plain
+// key-path taproot spend of the seller's own ordinals UTXO with 0x83 — exactly the
+// current/legacy listing format. If a wallet fails the script-path SINGLE|ACP gates
+// (B1c) but passes this, its limitation is narrowly "tapscript + non-default sighash";
+// if it fails this too, it ignores non-default sighash everywhere.
+// ---------------------------------------------------------------------------
+export function buildKeyPathAcp(ctx: BuildCtx): BuiltTest {
+  const psbt = newPsbt(ctx, 2);
+  const op = sellerOutpoint(ctx);
+  psbt.addInput(
+    withSighash(
+      {
+        hash: op.hash,
+        index: op.index,
+        witnessUtxo: { script: ctx.ordinalsSPK, value: op.value },
+        tapInternalKey: ctx.ordinalsXOnly,
+      },
+      SIGHASH_SINGLE_ACP,
+    ),
+  );
+  psbt.addOutput({ address: ctx.paymentAddress, value: op.value });
+  const original = psbt.toBase64();
+
+  return {
+    psbts: [original],
+    signSpecs: [
+      [
+        {
+          index: 0,
+          address: ctx.ordinalsAddress,
+          publicKeyHex: ctx.ordinalsPublicKeyHex,
+          sighashTypes: [SIGHASH_SINGLE_ACP],
+          disableTweakSigner: false,
+        },
+      ],
+    ],
+    verify: (signed) => {
+      const out = bitcoin.Psbt.fromBase64(requireOne(signed), { network: ctx.network });
+      return [
+        {
+          label: 'key-path tapKeySig honors SINGLE|ACP',
+          outcome: verifyTapKeySig(out, 0, ordinalsOutputKey(ctx), SIGHASH_SINGLE_ACP),
+        },
+        structureAssertion(original, requireOne(signed), 2),
+      ];
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // B1a — key-path sign an nVersion 3 tx (C-ONLY)
 // ---------------------------------------------------------------------------
 export function buildB1a(ctx: BuildCtx): BuiltTest {

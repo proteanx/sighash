@@ -13,6 +13,7 @@ import {
   buildB5aSweep,
   buildB5bSellerBatch,
   buildB6,
+  buildKeyPathAcp,
   detectPaymentKind,
 } from './builders';
 import { bitcoin, hexToBytes, toXOnly } from './crypto';
@@ -38,6 +39,12 @@ export interface TrackBTest {
  * assertion rather than a standalone row — the handoff treats it as cross-cutting.
  */
 export const TRACK_B_TESTS: TrackBTest[] = [
+  {
+    id: 'KP-ACP',
+    label: 'key-path SINGLE|ACP (legacy listing baseline)',
+    gate: 'SHARED',
+    build: buildKeyPathAcp,
+  },
   { id: 'B1a', label: 'v3 key-path', gate: 'C-ONLY', build: buildB1a },
   { id: 'B1b', label: 'script-path multi_a', gate: 'SHARED', masterGate: true, build: buildB1b },
   { id: 'B1c', label: '+ SINGLE|ACP (0x83)', gate: 'SHARED', build: buildB1c },

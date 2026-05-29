@@ -88,14 +88,24 @@ export function verifyTapKeySig(
   }
   const { scripts, values } = collectPrevouts(psbt);
   const tx = txFromPsbt(psbt);
+  const sig64 = sig.subarray(0, 64);
   const sighash = tx.hashForWitnessV1(inputIndex, scripts, values, signedSighashType);
-  const ok = verifySchnorr(sighash, outputKey, sig.subarray(0, 64));
+  const ok = verifySchnorr(sighash, outputKey, sig64);
+  if (ok) {
+    return {
+      ok,
+      signedSighashType,
+      reason: `Valid key-path schnorr sig over output key ${bytesToHex(outputKey).slice(0, 12)}…`,
+    };
+  }
+  const actual = probeKeyPathFlag(tx, scripts, values, inputIndex, outputKey, sig64);
   return {
     ok,
     signedSighashType,
-    reason: ok
-      ? `Valid key-path schnorr sig over output key ${bytesToHex(outputKey).slice(0, 12)}…`
-      : 'Schnorr verification failed against the expected output key',
+    reason:
+      actual !== null
+        ? `Wallet stamped 0x${signedSighashType.toString(16)} but the signature bytes are over sighash 0x${actual.toString(16)} — it did not honor the requested flag`
+        : 'Schnorr verification failed against the expected output key',
   };
 }
 
@@ -184,6 +194,26 @@ function probeScriptPathFlag(
       if (verifySchnorr(hash, xOnlyPubkey, sig64)) return flag;
     } catch {
       // SINGLE with no output at this index throws — not the flag in use, skip.
+    }
+  }
+  return null;
+}
+
+/** Key-path counterpart of {@link probeScriptPathFlag} (no leaf hash). */
+function probeKeyPathFlag(
+  tx: bitcoin.Transaction,
+  scripts: Uint8Array[],
+  values: bigint[],
+  inputIndex: number,
+  outputKey: Uint8Array,
+  sig64: Uint8Array,
+): number | null {
+  for (const flag of CANDIDATE_FLAGS) {
+    try {
+      const hash = tx.hashForWitnessV1(inputIndex, scripts, values, flag);
+      if (verifySchnorr(hash, outputKey, sig64)) return flag;
+    } catch {
+      // SINGLE with no output at this index throws — skip.
     }
   }
   return null;
