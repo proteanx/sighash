@@ -217,6 +217,35 @@ describe('OkxProvider.signPsbt — autoFinalized + toSignInputs widening', () =>
     });
   });
 
+  it('threads disableTweakSigner + tapLeafHashToSign for taproot script-path legs', async () => {
+    const { client } = makeClient();
+    await client.connect(OKX);
+    const inputs: InputToSign[] = [
+      {
+        index: 0,
+        address: 'addr',
+        publicKey: 'pk',
+        sighashTypes: [0x83],
+        disableTweakSigner: true,
+        tapLeafHashToSign: 'ab'.repeat(32),
+      },
+    ];
+    await client.signPsbt({ tx: '70736274ff', inputsToSign: inputs });
+    expect(mainnetLib.signPsbt).toHaveBeenCalledWith('70736274ff', {
+      autoFinalized: false,
+      toSignInputs: [
+        {
+          index: 0,
+          address: 'addr',
+          publicKey: 'pk',
+          sighashTypes: [0x83],
+          disableTweakSigner: true,
+          tapLeafHashToSign: 'ab'.repeat(32),
+        },
+      ],
+    });
+  });
+
   it('broadcasts when finalize and broadcast are both true', async () => {
     const { client } = makeClient();
     await client.connect(OKX);

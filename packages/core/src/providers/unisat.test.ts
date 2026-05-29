@@ -195,6 +195,33 @@ describe('UnisatProvider.signPsbt — autoFinalized semantics', () => {
     });
   });
 
+  it('threads disableTweakSigner for taproot script-path (multi_a) legs', async () => {
+    const { client } = makeClient();
+    await client.connect(UNISAT);
+    const inputs: InputToSign[] = [
+      {
+        index: 0,
+        address: 'addr',
+        publicKey: 'pk',
+        sighashTypes: [0x83],
+        disableTweakSigner: true,
+      },
+    ];
+    await client.signPsbt({ tx: '70736274ff', inputsToSign: inputs });
+    expect(mockLib.signPsbt).toHaveBeenCalledWith('70736274ff', {
+      autoFinalized: false,
+      toSignInputs: [
+        {
+          index: 0,
+          address: 'addr',
+          publicKey: 'pk',
+          sighashTypes: [0x83],
+          disableTweakSigner: true,
+        },
+      ],
+    });
+  });
+
   it('returns both hex and base64', async () => {
     const { client } = makeClient();
     await client.connect(UNISAT);

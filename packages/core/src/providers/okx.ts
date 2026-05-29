@@ -42,15 +42,17 @@ function networkFromOkxNetwork(value: string): NetworkType | undefined {
 
 /**
  * OKX wallet's per-input signing descriptor — superset of UniSat's. Our public
- * `InputToSign` already includes `publicKey` and `sighashTypes`; the OKX-only
- * `tapLeafHashToSign` / `disableTweakSigner` / `useTweakSigner` fields are not part of our
- * canonical type because no MVP caller (ARKAiD's `okx-signing.ts` included) needs them.
+ * `InputToSign` carries `publicKey`, `sighashTypes`, and (for taproot script-path spends)
+ * `disableTweakSigner` + `tapLeafHashToSign`, which map straight onto OKX's fields. The
+ * `useTweakSigner` field is OKX-only and not yet surfaced — no caller needs it.
  */
 export interface OkxToSignInput {
   index: number;
   address?: string;
   publicKey?: string;
   sighashTypes?: number[];
+  disableTweakSigner?: boolean;
+  tapLeafHashToSign?: string;
 }
 
 export interface OkxSignOptions {
@@ -351,6 +353,9 @@ function toOkxInput(input: InputToSign): OkxToSignInput {
   };
   if (input.publicKey !== undefined) out.publicKey = input.publicKey;
   if (input.sighashTypes !== undefined) out.sighashTypes = input.sighashTypes;
+  // Script-path legs (e.g. multi_a): sign with the untweaked key, optionally bound to a leaf.
+  if (input.disableTweakSigner !== undefined) out.disableTweakSigner = input.disableTweakSigner;
+  if (input.tapLeafHashToSign !== undefined) out.tapLeafHashToSign = input.tapLeafHashToSign;
   return out;
 }
 

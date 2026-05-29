@@ -419,6 +419,8 @@ function toUnisatInput(input: InputToSign): UnisatToSignInput {
   };
   if (input.publicKey !== undefined) out.publicKey = input.publicKey;
   if (input.sighashTypes !== undefined) out.sighashTypes = input.sighashTypes;
+  // Script-path legs (e.g. multi_a) must sign with the untweaked internal key.
+  if (input.disableTweakSigner !== undefined) out.disableTweakSigner = input.disableTweakSigner;
   return out;
 }
 

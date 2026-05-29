@@ -8,6 +8,19 @@ export interface InputToSign {
   address: string;
   publicKey?: string;
   sighashTypes?: number[];
+  /**
+   * Sign with the untweaked internal key instead of the BIP86/merkle-tweaked output key.
+   * Required for taproot **script-path** spends (e.g. a `multi_a` tapscript leg), where the
+   * signature must validate against the raw x-only key embedded in the leaf script. Honored
+   * by UniSat and OKX; Xverse infers key- vs script-path from the PSBT input fields and
+   * ignores this flag. Leave unset for ordinary key-path spends.
+   */
+  disableTweakSigner?: boolean;
+  /**
+   * Hex tapleaf hash binding a script-path signature to a specific leaf. OKX-only; other
+   * wallets infer the leaf from the PSBT's `tapLeafScript` and ignore this.
+   */
+  tapLeafHashToSign?: string;
 }
 
 /**
