@@ -99,30 +99,26 @@ export function TrackBPanel(props: TrackBPanelProps) {
       if (!ctx || !props.provider || !props.client) return;
       setRunning(test.id);
       try {
-        const result = await runTrackBTest(test, ctx, {
-          provider: props.provider,
-          network: props.network,
-          client: props.client,
-        });
+        const result = await runTrackBTest(test, ctx, { client: props.client });
         setResults((prev) => ({ ...prev, [test.id]: result }));
       } finally {
         setRunning(null);
       }
     },
-    [ctxResult.ctx, props.provider, props.network, props.client],
+    [ctxResult.ctx, props.provider, props.client],
   );
 
   const runAll = useCallback(async () => {
     const ctx = ctxResult.ctx;
     if (!ctx || !props.provider || !props.client) return;
-    const deps = { provider: props.provider, network: props.network, client: props.client };
+    const deps = { client: props.client };
     for (const test of TRACK_B_TESTS) {
       setRunning(test.id);
       const result = await runTrackBTest(test, ctx, deps);
       setResults((prev) => ({ ...prev, [test.id]: result }));
     }
     setRunning(null);
-  }, [ctxResult.ctx, props.provider, props.network, props.client]);
+  }, [ctxResult.ctx, props.provider, props.client]);
 
   const selfTestBox = (
     <div style={styles.configBox}>

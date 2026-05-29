@@ -1,22 +1,14 @@
-import {
-  type InputToSign,
-  MAINNET,
-  type NetworkType,
-  OKX,
-  type OkxLibrary,
-  type ProviderType,
-  type SighashClient,
-  UNISAT,
-  type UnisatLibrary,
-  XVERSE,
-  hexToBase64,
-} from '@sighash-dev/core';
+import { type InputToSign, type SighashClient, hexToBase64 } from '@sighash-dev/core';
 import type { InputSignSpec } from './builders';
 
+/**
+ * Track B drives signing entirely through the sighash client now — the same path ARKAiD
+ * uses. Script-path control (`disableTweakSigner`, `tapLeafHashToSign`) rides on the
+ * canonical {@link InputToSign}; the client dispatches to whichever wallet is connected and
+ * each provider maps the fields onto its own RPC (UniSat/OKX honor them; Xverse infers
+ * key- vs script-path from the PSBT and ignores them).
+ */
 export interface SignerDeps {
-  provider: ProviderType;
-  network: NetworkType;
-  /** Used only for the Xverse path (the modern signPsbt RPC needs no script-path flags). */
   client: SighashClient;
 }
 
@@ -26,205 +18,58 @@ export interface BatchSignResult {
   signingPath: 'native' | 'sequential';
 }
 
-/** OKX's per-input descriptor — a superset of UniSat's that also honors script-path flags. */
-interface OkxToSignInputExt {
-  index: number;
-  address?: string;
-  publicKey?: string;
-  sighashTypes?: number[];
-  disableTweakSigner?: boolean;
-  /** OKX-only: binds a script-path signature to a specific tapleaf (hex). */
-  tapLeafHashToSign?: string;
-}
-
-interface RawWindow {
-  unisat?: UnisatLibrary;
-  okxwallet?: { bitcoin?: OkxLibrary; bitcoinTestnet?: OkxLibrary };
-}
-
-function rawWindow(): RawWindow {
-  return globalThis as unknown as RawWindow;
-}
-
-function requireUnisat(): UnisatLibrary {
-  const lib = rawWindow().unisat;
-  if (!lib) throw new Error('UniSat is not available on window.unisat');
-  return lib;
-}
-
-function requireOkx(network: NetworkType): OkxLibrary {
-  const wallet = rawWindow().okxwallet;
-  const lib = network === MAINNET ? wallet?.bitcoin : wallet?.bitcoinTestnet;
-  if (!lib) throw new Error(`OKX is not available for network "${network}"`);
-  return lib;
-}
-
-function toUnisatInputs(specs: InputSignSpec[]) {
-  return specs.map((s) => ({
-    index: s.index,
-    address: s.address,
-    publicKey: s.publicKeyHex,
-    sighashTypes: s.sighashTypes,
-    disableTweakSigner: s.disableTweakSigner,
-  }));
-}
-
-function toOkxInputs(specs: InputSignSpec[]): OkxToSignInputExt[] {
+function toCoreInputs(specs: InputSignSpec[]): InputToSign[] {
   return specs.map((s) => {
-    const out: OkxToSignInputExt = {
+    const out: InputToSign = {
       index: s.index,
       address: s.address,
       publicKey: s.publicKeyHex,
       sighashTypes: s.sighashTypes,
-      disableTweakSigner: s.disableTweakSigner,
     };
-    if (s.tapLeafHashHex) out.tapLeafHashToSign = s.tapLeafHashHex;
+    if (s.disableTweakSigner !== undefined) out.disableTweakSigner = s.disableTweakSigner;
+    if (s.tapLeafHashHex !== undefined) out.tapLeafHashToSign = s.tapLeafHashHex;
     return out;
   });
 }
 
-function toCoreInputs(specs: InputSignSpec[]): InputToSign[] {
-  return specs.map((s) => ({
-    index: s.index,
-    address: s.address,
-    publicKey: s.publicKeyHex,
-    sighashTypes: s.sighashTypes,
-  }));
-}
-
-/** Signs one PSBT, returning the signed PSBT as base64. Always partial-sign (no finalize). */
+/** Signs one PSBT through the connected wallet, returning the signed PSBT as base64. */
 export async function signOne(
   deps: SignerDeps,
   psbtBase64: string,
   specs: InputSignSpec[],
 ): Promise<string> {
-  switch (deps.provider) {
-    case UNISAT: {
-      const lib = requireUnisat();
-      const hex = base64ToHexLocal(psbtBase64);
-      const signed = await lib.signPsbt(hex, {
-        autoFinalized: false,
-        toSignInputs: toUnisatInputs(specs),
-      });
-      return hexToBase64(signed);
-    }
-    case OKX: {
-      const lib = requireOkx(deps.network);
-      const hex = base64ToHexLocal(psbtBase64);
-      const signed = await lib.signPsbt(hex, {
-        autoFinalized: false,
-        toSignInputs: toOkxInputs(specs),
-      });
-      return hexToBase64(signed);
-    }
-    case XVERSE: {
-      const res = await deps.client.signPsbt({
-        tx: psbtBase64,
-        inputsToSign: toCoreInputs(specs),
-        finalize: false,
-        broadcast: false,
-      });
-      return requireSignedBase64(res.signedPsbtBase64, res.signedPsbtHex);
-    }
-    default:
-      throw new Error(`Unsupported provider: ${deps.provider}`);
-  }
+  const res = await deps.client.signPsbt({
+    tx: psbtBase64,
+    inputsToSign: toCoreInputs(specs),
+    finalize: false,
+    broadcast: false,
+  });
+  return requireSignedBase64(res.signedPsbtBase64, res.signedPsbtHex);
 }
 
-/** Signs N PSBTs, preferring the wallet's one-approval bulk RPC and reporting the path taken. */
+/** Signs N PSBTs through the connected wallet, reporting whether one approval covered them. */
 export async function signMany(
   deps: SignerDeps,
   psbts: string[],
   specs: InputSignSpec[][],
 ): Promise<BatchSignResult> {
-  switch (deps.provider) {
-    case UNISAT: {
-      const lib = requireUnisat();
-      // UniSat's bulk RPC applies a single toSignInputs to every PSBT; heterogeneous specs
-      // (e.g. B5b's key-path TX1 + script-path TX2) must fall back to a sequential loop.
-      if (!specsAreHomogeneous(specs)) {
-        return sequential(deps, psbts, specs);
-      }
-      const hexs = psbts.map(base64ToHexLocal);
-      const signed = await lib.signPsbts(hexs, {
-        autoFinalized: false,
-        toSignInputs: toUnisatInputs(firstSpec(specs)),
-      });
-      return { signed: signed.map(hexToBase64), signingPath: 'native' };
-    }
-    case OKX: {
-      const lib = requireOkx(deps.network);
-      const bulk = lib.signPsbts ?? lib.signMultiplePsbts;
-      if (typeof bulk !== 'function') {
-        return sequential(deps, psbts, specs);
-      }
-      const hexs = psbts.map(base64ToHexLocal);
-      // OKX takes a per-PSBT options array, so heterogeneous specs work natively.
-      const opts = specs.map((s) => ({ autoFinalized: false, toSignInputs: toOkxInputs(s) }));
-      const signed = await bulk.call(lib, hexs, opts);
-      return { signed: signed.map(hexToBase64), signingPath: 'native' };
-    }
-    case XVERSE: {
-      const res = await deps.client.signPsbts({
-        psbts,
-        inputsToSign: specs.map(toCoreInputs),
-        finalize: false,
-        broadcast: false,
-      });
-      return {
-        signed: res.signedPsbts.map((s) =>
-          requireSignedBase64(s.signedPsbtBase64, s.signedPsbtHex),
-        ),
-        signingPath: res.signingPath,
-      };
-    }
-    default:
-      throw new Error(`Unsupported provider: ${deps.provider}`);
-  }
-}
-
-async function sequential(
-  deps: SignerDeps,
-  psbts: string[],
-  specs: InputSignSpec[][],
-): Promise<BatchSignResult> {
-  const signed: string[] = [];
-  for (let i = 0; i < psbts.length; i++) {
-    const psbt = psbts[i];
-    const spec = specs[i];
-    if (!psbt || !spec) throw new Error(`Missing PSBT/spec at index ${i}`);
-    signed.push(await signOne(deps, psbt, spec));
-  }
-  return { signed, signingPath: 'sequential' };
-}
-
-function specsAreHomogeneous(specs: InputSignSpec[][]): boolean {
-  if (specs.length <= 1) return true;
-  const first = JSON.stringify(specs[0]);
-  return specs.every((s) => JSON.stringify(s) === first);
-}
-
-function firstSpec(specs: InputSignSpec[][]): InputSignSpec[] {
-  const first = specs[0];
-  if (!first) throw new Error('Empty batch spec');
-  return first;
+  const res = await deps.client.signPsbts({
+    psbts,
+    // Per-PSBT inputs: a flat list when every PSBT signs the same way, nested otherwise. We
+    // always pass nested and let the provider collapse it (UniSat/OKX go sequential for
+    // heterogeneous batches like B5b; Xverse handles per-PSBT natively).
+    inputsToSign: specs.map(toCoreInputs),
+    finalize: false,
+    broadcast: false,
+  });
+  return {
+    signed: res.signedPsbts.map((s) => requireSignedBase64(s.signedPsbtBase64, s.signedPsbtHex)),
+    signingPath: res.signingPath,
+  };
 }
 
 function requireSignedBase64(base64?: string, hex?: string): string {
   if (base64) return base64;
   if (hex) return hexToBase64(hex);
   throw new Error('Wallet returned no signed PSBT');
-}
-
-/**
- * Local base64→hex for the wallet RPCs that want hex. Avoids round-tripping through
- * bitcoinjs (which could drop unknown fields) — a straight byte transcode.
- */
-function base64ToHexLocal(base64: string): string {
-  const binary = globalThis.atob(base64);
-  let hex = '';
-  for (let i = 0; i < binary.length; i++) {
-    hex += binary.charCodeAt(i).toString(16).padStart(2, '0');
-  }
-  return hex;
 }
