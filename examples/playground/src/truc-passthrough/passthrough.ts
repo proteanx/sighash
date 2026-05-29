@@ -70,10 +70,10 @@ export interface Passthrough {
 }
 
 /**
- * Constructs the Option C passthrough `tr(seller, { multi_a(2, seller, platform) })` and
- * derives every field a wallet/PSBT/verifier needs (Appendix A). Cross-checks the manual
- * derivation against bitcoinjs-lib's `payments.p2tr` and throws on any mismatch — this is
- * the A1 self-test, run every time the passthrough is built.
+ * Constructs the TRUC passthrough `tr(seller, { multi_a(2, seller, platform) })` and derives
+ * every field a wallet/PSBT/verifier needs. Cross-checks the manual derivation against
+ * bitcoinjs-lib's `payments.p2tr` and throws on any mismatch — a self-test run every time the
+ * passthrough is built.
  */
 export function buildPassthrough(
   sellerXOnly: Uint8Array,

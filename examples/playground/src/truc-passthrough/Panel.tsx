@@ -4,16 +4,16 @@ import type { BuildCtx } from './builders';
 import { bytesToHex, generatePlatformKey, platformKeyFromHex } from './crypto';
 import { type SelfTestRow, runSelfTest } from './self-test';
 import {
-  TRACK_B_TESTS,
   type TestRunResult,
-  type TrackBTest,
+  WALLET_SIGN_TESTS,
+  type WalletSignTest,
   createBuildCtx,
-  runTrackBTest,
-} from './track-b';
+  runWalletSignTest,
+} from './tests';
 
 const STORAGE_KEY = 'sighash-playground-platform-priv';
 
-export interface TrackBPanelProps {
+export interface TrucPassthroughPanelProps {
   connected: boolean;
   provider: ProviderType | undefined;
   network: NetworkType;
@@ -31,7 +31,7 @@ interface RealPrevoutForm {
   value: string;
 }
 
-export function TrackBPanel(props: TrackBPanelProps) {
+export function TrucPassthroughPanel(props: TrucPassthroughPanelProps) {
   const [platformPrivHex, setPlatformPrivHex] = useState<string>(loadOrCreatePlatformKey);
   const [prevout, setPrevout] = useState<RealPrevoutForm>({
     enabled: false,
@@ -94,12 +94,12 @@ export function TrackBPanel(props: TrackBPanelProps) {
   }, []);
 
   const runTest = useCallback(
-    async (test: TrackBTest) => {
+    async (test: WalletSignTest) => {
       const ctx = ctxResult.ctx;
       if (!ctx || !props.provider || !props.client) return;
       setRunning(test.id);
       try {
-        const result = await runTrackBTest(test, ctx, { client: props.client });
+        const result = await runWalletSignTest(test, ctx, { client: props.client });
         setResults((prev) => ({ ...prev, [test.id]: result }));
       } finally {
         setRunning(null);
@@ -112,9 +112,9 @@ export function TrackBPanel(props: TrackBPanelProps) {
     const ctx = ctxResult.ctx;
     if (!ctx || !props.provider || !props.client) return;
     const deps = { client: props.client };
-    for (const test of TRACK_B_TESTS) {
+    for (const test of WALLET_SIGN_TESTS) {
       setRunning(test.id);
-      const result = await runTrackBTest(test, ctx, deps);
+      const result = await runWalletSignTest(test, ctx, deps);
       setResults((prev) => ({ ...prev, [test.id]: result }));
     }
     setRunning(null);
@@ -144,9 +144,9 @@ export function TrackBPanel(props: TrackBPanelProps) {
   if (!props.connected) {
     return (
       <section style={styles.section}>
-        <h2 style={styles.h2}>Option C — Track B (wallet signing gates)</h2>
+        <h2 style={styles.h2}>TRUC Passthrough — wallet signing tests</h2>
         {selfTestBox}
-        <p style={styles.muted}>Connect a wallet to run the Track B signing capability tests.</p>
+        <p style={styles.muted}>Connect a wallet to run the wallet-signing capability tests.</p>
       </section>
     );
   }
@@ -155,11 +155,11 @@ export function TrackBPanel(props: TrackBPanelProps) {
 
   return (
     <section style={styles.section}>
-      <h2 style={styles.h2}>Option C — Track B (wallet signing gates)</h2>
+      <h2 style={styles.h2}>TRUC Passthrough — wallet signing tests</h2>
       <p style={styles.muted}>
         Sign-and-verify only — no broadcast. Each test builds the PSBT, has{' '}
         <strong>{props.provider}</strong> sign it, then verifies the signature against the
-        BIP341/342 sighash. Reconnect a different wallet and re-run to fill the doc's matrix.
+        BIP341/342 sighash. Reconnect a different wallet and re-run across all three.
       </p>
 
       {selfTestBox}
@@ -242,7 +242,7 @@ export function TrackBPanel(props: TrackBPanelProps) {
       </div>
 
       <div style={styles.table}>
-        {TRACK_B_TESTS.map((test) => (
+        {WALLET_SIGN_TESTS.map((test) => (
           <TestRow
             key={test.id}
             test={test}
@@ -258,7 +258,7 @@ export function TrackBPanel(props: TrackBPanelProps) {
 }
 
 function TestRow(props: {
-  test: TrackBTest;
+  test: WalletSignTest;
   result: TestRunResult | undefined;
   running: boolean;
   disabled: boolean;
@@ -313,8 +313,8 @@ function statusLabel(result: TestRunResult | undefined, running: boolean): strin
 }
 
 function gateStyle(gate: string): CSSProperties {
-  if (gate === 'C-ONLY') return { background: '#e6f0ff', color: '#1452cc' };
-  if (gate === 'SHARED+C') return { background: '#efe6ff', color: '#6a1bcc' };
+  if (gate === 'TRUC-ONLY') return { background: '#e6f0ff', color: '#1452cc' };
+  if (gate === 'SHARED+TRUC') return { background: '#efe6ff', color: '#6a1bcc' };
   return { background: '#e9f7e9', color: '#1a7a1a' };
 }
 

@@ -20,47 +20,57 @@ import { bitcoin, hexToBytes, toXOnly } from './crypto';
 import { buildPassthrough } from './passthrough';
 import { type SignerDeps, signMany, signOne } from './signers';
 
-/** Two-level gate from the handoff doc: SHARED gates block any design; C-ONLY block only Option C. */
-export type Gate = 'SHARED' | 'C-ONLY' | 'SHARED+C';
+/**
+ * Two-level gate: SHARED gates are required by *any* seller/platform 2-of-2 passthrough
+ * design; TRUC-ONLY gates are required only by the TRUC (v3, 0-fee, decomposed-1p1c) variant.
+ * A SHARED failure questions the whole approach; a TRUC-ONLY failure just means falling back
+ * to the non-TRUC, fee-paying variant.
+ */
+export type Gate = 'SHARED' | 'TRUC-ONLY' | 'SHARED+TRUC';
 
-export interface TrackBTest {
+export interface WalletSignTest {
   id: string;
   label: string;
   gate: Gate;
   /** The single most important early result — script-path multi_a signing. */
   masterGate?: boolean;
-  /** A failure here is recorded but doesn't sink Option C (e.g. recovery falls back to script-path). */
+  /** A failure here is recorded but doesn't sink the TRUC design (e.g. recovery falls back to script-path). */
   nonFatal?: boolean;
   build: (ctx: BuildCtx) => BuiltTest;
 }
 
 /**
- * Track B test registry. B4 (fidelity) is folded into every test as the trailing structure
- * assertion rather than a standalone row — the handoff treats it as cross-cutting.
+ * Wallet-signing test registry. B4 (fidelity) is folded into every test as the trailing
+ * structure assertion rather than a standalone row — it's cross-cutting.
  */
-export const TRACK_B_TESTS: TrackBTest[] = [
+export const WALLET_SIGN_TESTS: WalletSignTest[] = [
   {
     id: 'KP-ACP',
     label: 'key-path SINGLE|ACP (legacy listing baseline)',
     gate: 'SHARED',
     build: buildKeyPathAcp,
   },
-  { id: 'B1a', label: 'v3 key-path', gate: 'C-ONLY', build: buildB1a },
+  { id: 'B1a', label: 'v3 key-path', gate: 'TRUC-ONLY', build: buildB1a },
   { id: 'B1b', label: 'script-path multi_a', gate: 'SHARED', masterGate: true, build: buildB1b },
   { id: 'B1c', label: '+ SINGLE|ACP (0x83)', gate: 'SHARED', build: buildB1c },
   { id: 'B1d', label: '+ phantom prevout', gate: 'SHARED', build: buildB1d },
-  { id: 'B1e', label: 'combined seller leg + transplant', gate: 'SHARED+C', build: buildB1e },
+  { id: 'B1e', label: 'combined seller leg + transplant', gate: 'SHARED+TRUC', build: buildB1e },
   { id: 'B2', label: 'TX1 inscription → passthrough', gate: 'SHARED', build: buildB2 },
   { id: 'B3', label: 'buyer partial sign', gate: 'SHARED', build: buildB3 },
-  { id: 'B5a-3', label: 'sweep batch N=3', gate: 'C-ONLY', build: (ctx) => buildB5aSweep(ctx, 3) },
+  {
+    id: 'B5a-3',
+    label: 'sweep batch N=3',
+    gate: 'TRUC-ONLY',
+    build: (ctx) => buildB5aSweep(ctx, 3),
+  },
   {
     id: 'B5a-10',
     label: 'sweep batch N=10',
-    gate: 'C-ONLY',
+    gate: 'TRUC-ONLY',
     build: (ctx) => buildB5aSweep(ctx, 10),
   },
   { id: 'B5b', label: 'seller batch (TX1 + TX2)', gate: 'SHARED', build: buildB5bSellerBatch },
-  { id: 'B6', label: 'recovery key-path', gate: 'C-ONLY', nonFatal: true, build: buildB6 },
+  { id: 'B6', label: 'recovery key-path', gate: 'TRUC-ONLY', nonFatal: true, build: buildB6 },
 ];
 
 export interface TestRunResult {
@@ -102,8 +112,8 @@ export function createBuildCtx(params: CreateCtxParams): BuildCtx {
 }
 
 /** Builds the test PSBT(s), drives the wallet to sign, then verifies. Never throws. */
-export async function runTrackBTest(
-  test: TrackBTest,
+export async function runWalletSignTest(
+  test: WalletSignTest,
   ctx: BuildCtx,
   deps: SignerDeps,
 ): Promise<TestRunResult> {

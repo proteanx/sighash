@@ -15,14 +15,14 @@ import {
   buildKeyPathAcp,
 } from './builders';
 import { bitcoin, bytesToHex, concatBytes, ecc, generatePlatformKey, taggedHash } from './crypto';
-import { createBuildCtx } from './track-b';
+import { createBuildCtx } from './tests';
 import { collectPrevouts, txFromPsbt } from './verify';
 
 /**
  * Local key material standing in for a wallet. The self-test signs every PSBT exactly the
  * way the corresponding wallet would (key-path tweak, raw-key tapscript, segwit ECDSA), then
- * runs the wallet's signed bytes back through the *same* verify path Track B uses. If these
- * pass, the construction + sighash + verification are internally consistent — so a real
+ * runs the wallet's signed bytes back through the *same* verify path the wallet tests use. If
+ * these pass, the construction + sighash + verification are internally consistent — so a real
  * wallet failing a test means a real wallet limitation, not a harness bug.
  */
 interface LocalWallet {

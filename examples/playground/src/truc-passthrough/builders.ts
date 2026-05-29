@@ -13,7 +13,7 @@ export const SIGHASH_DEFAULT = 0x00;
 export const SIGHASH_ALL = 0x01;
 export const SIGHASH_SINGLE_ACP = 0x83;
 
-/** Full inscription postage (V0). Option C keeps this — no shrink. */
+/** Full inscription postage (V0). The TRUC passthrough keeps this — no shrink. */
 const POSTAGE = 546n;
 const DUMMY_VALUE = 600n;
 const PAYMENT_VALUE = 25_000n;
@@ -207,7 +207,7 @@ export function buildKeyPathAcp(ctx: BuildCtx): BuiltTest {
 }
 
 // ---------------------------------------------------------------------------
-// B1a — key-path sign an nVersion 3 tx (C-ONLY)
+// B1a — key-path sign an nVersion 3 tx (TRUC-ONLY)
 // ---------------------------------------------------------------------------
 export function buildB1a(ctx: BuildCtx): BuiltTest {
   const psbt = newPsbt(ctx, 3);
@@ -543,7 +543,7 @@ export function buildB3(ctx: BuildCtx): BuiltTest {
 }
 
 // ---------------------------------------------------------------------------
-// B5a — sweep buyer batch sign N v3 TX2s (C-ONLY)
+// B5a — sweep buyer batch sign N v3 TX2s (TRUC-ONLY)
 // ---------------------------------------------------------------------------
 export function buildB5aSweep(ctx: BuildCtx, count: number): BuiltTest {
   const sh = buyerSighash(ctx);
@@ -644,7 +644,7 @@ export function buildB5bSellerBatch(ctx: BuildCtx): BuiltTest {
 }
 
 // ---------------------------------------------------------------------------
-// B6 — recovery: key-path spend of the passthrough (non-BIP86 merkle tweak) (C-ONLY)
+// B6 — recovery: key-path spend of the passthrough (non-BIP86 merkle tweak) (TRUC-ONLY)
 // ---------------------------------------------------------------------------
 export function buildB6(ctx: BuildCtx): BuiltTest {
   const psbt = newPsbt(ctx, 2);

@@ -77,9 +77,9 @@ export interface PlatformKey {
 }
 
 /**
- * Generates a throwaway secp256k1 keypair for the platform leg. Per the handoff doc the
- * platform key only has to be a valid x-only point inside the `multi_a` script — Track B
- * never asks a wallet to produce the platform signature, so this key signs nothing.
+ * Generates a throwaway secp256k1 keypair for the platform leg. The platform key only has to
+ * be a valid x-only point inside the `multi_a` script — these tests never ask a wallet to
+ * produce the platform signature, so this key signs nothing.
  */
 export function generatePlatformKey(): PlatformKey {
   for (let i = 0; i < 16; i++) {

@@ -16,7 +16,7 @@ import {
   buildListingFixturePsbt,
   summarizeSignedPsbt,
 } from './listing-fixture';
-import { TrackBPanel } from './option-c/Panel';
+import { TrucPassthroughPanel } from './truc-passthrough/Panel';
 
 const SIGHASH_CONFIG: SighashConfig = {
   network: 'mainnet',
@@ -270,7 +270,7 @@ function Playground() {
         )}
       </section>
 
-      <TrackBPanel
+      <TrucPassthroughPanel
         connected={connected}
         provider={provider}
         network={network}

@@ -2,7 +2,7 @@ import { type InputToSign, type SighashClient, hexToBase64 } from '@sighash-dev/
 import type { InputSignSpec } from './builders';
 
 /**
- * Track B drives signing entirely through the sighash client now — the same path ARKAiD
+ * The harness drives signing entirely through the sighash client — the same path ARKAiD
  * uses. Script-path control (`disableTweakSigner`, `tapLeafHashToSign`) rides on the
  * canonical {@link InputToSign}; the client dispatches to whichever wallet is connected and
  * each provider maps the fields onto its own RPC (UniSat/OKX honor them; Xverse infers
