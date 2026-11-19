@@ -35,7 +35,7 @@ For React, prefer [`@sighash-dev/react`](../react).
 - **Native bulk-sign where supported:** UniSat (`signPsbts`), Xverse (`signMultipleTransactions`), OKX (per-PSBT options array). One wallet prompt for N PSBTs.
 - **Transparent sequential fallback** when bulk RPCs throw — your call still resolves.
 - **`autoFinalized: false` by default** for `signPsbt` / `signPsbts` — partial-sign flows (marketplace listings) work out of the box.
-- **`InputToSign` widening** with `publicKey` + `sighashTypes` (e.g. SIGHASH_SINGLE|ACP at `0x83`) for advanced flows.
+- **`InputToSign` widening** with `publicKey` + `sighashTypes` (e.g. SIGHASH_SINGLE|ACP at `0x83`), plus `disableTweakSigner` + `tapLeafHashToSign` for taproot **script-path** signing (e.g. `multi_a` legs).
 - **Auto-derive `inputsToSign`** from a PSBT against the connected wallet's addresses, including taproot (ECC initialized at module load).
 - **TypeScript-first**, strict types, minimal public surface.
 

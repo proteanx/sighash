@@ -361,12 +361,33 @@ Utility used by the sequential fallback: given a flat `InputToSign[]` returns it
 
 ```ts
 interface InputToSign {
-  index: number;            // input index in the PSBT
-  address: string;          // address that owns the input
-  publicKey?: string;       // honored by OKX / UniSat
-  sighashTypes?: number[];  // e.g. [0x83] for SIGHASH_SINGLE | ANYONECANPAY
+  index: number;             // input index in the PSBT
+  address: string;           // address that owns the input
+  publicKey?: string;        // honored by OKX / UniSat
+  sighashTypes?: number[];   // e.g. [0x83] for SIGHASH_SINGLE | ANYONECANPAY
+  disableTweakSigner?: boolean;  // taproot script-path: sign with the untweaked internal key
+  tapLeafHashToSign?: string;    // taproot script-path (OKX): bind the sig to a specific leaf
 }
 ```
+
+#### Taproot script-path signing (`disableTweakSigner`, `tapLeafHashToSign`)
+
+By default a wallet signs a taproot input **key-path**, using the BIP86/merkle-tweaked output key.
+For a **script-path** spend — e.g. a `multi_a` tapscript leg, where the signature must validate
+against the raw x-only key embedded in the leaf script — set `disableTweakSigner: true` so the
+wallet signs with the untweaked internal key.
+
+- **UniSat** and **OKX** honor `disableTweakSigner`. OKX additionally accepts `tapLeafHashToSign`
+  (a hex tapleaf hash) to bind the signature to a specific leaf.
+- **Xverse** infers key- vs script-path from the PSBT input's fields (`tapLeafScript` vs
+  `tapInternalKey`) and ignores both flags.
+- Leave both unset for ordinary key-path spends.
+
+> **Wallet support caveat:** OKX's extension currently ignores the requested sighash flag on
+> taproot **script-path** inputs and always signs `SIGHASH_DEFAULT` — so it cannot produce a
+> `SINGLE|ANYONECANPAY` tapscript signature (key-path `SINGLE|ACP` is fine). Xverse and UniSat
+> honor the requested flag on both paths. Verify any script-path signature against the
+> BIP341/342 sighash rather than trusting the stamped flag byte.
 
 ### `BulkInputsToSign`
 
@@ -723,6 +744,7 @@ There is no public mempool.space endpoint for `regtest`. `pushPsbt` / `broadcast
 - **Connect:** `requestAccounts()` + `getPublicKey()`. Single address for ordinals + payment.
 - **Bulk sign:** native `unisat.signPsbts` (single shared `toSignInputs`). Falls back to sequential when `forceSequentialBulkSign` is set or when nested per-PSBT `inputsToSign` is passed.
 - **`autoFinalized`** is always passed explicitly (UniSat's API defaults it to `true`, which would break partial-sign flows).
+- **Script-path:** honors `InputToSign.disableTweakSigner` (maps to UniSat's `toSignInputs[].disableTweakSigner`). Honors the requested sighash flag on both key-path and script-path.
 - **Network:** `switchNetwork` ✅ (mainnet/testnet/testnet4/signet; **not** regtest), `getNetwork` ✅.
 - **Events:** reconnects on `accountsChanged` / `networkChanged`.
 
@@ -742,6 +764,8 @@ There is no public mempool.space endpoint for `regtest`. `pushPsbt` / `broadcast
 - **Connect:** `connect()`. Single address for ordinals + payment.
 - **Single sign:** `signPsbt`. `autoFinalized` always explicit (defaults to `true` otherwise).
 - **Bulk sign:** probes `signPsbts` then `signMultiplePsbts`, passing a **per-PSBT options array** (one entry per PSBT — OKX's bulk RPC expects `options.map(...)`, unlike UniSat's single shared options). Falls back to sequential when: nested per-PSBT `inputsToSign`, no bulk method present, or the bulk RPC throws. User-rejection (EIP-1193 code `4001`/`-32000`) surfaces as `User rejected the OKX bulk-sign request`.
+- **Script-path:** honors `InputToSign.disableTweakSigner` and `tapLeafHashToSign` (maps to OKX's `toSignInputs[]` fields of the same names).
+- **⚠️ Script-path sighash limitation:** OKX's extension ignores the requested sighash flag on taproot **script-path** inputs and always signs `SIGHASH_DEFAULT` — it stamps the requested byte onto the returned signature but the bytes are over the DEFAULT message. So OKX **cannot** produce a `SINGLE|ANYONECANPAY` tapscript signature (a key-path `SINGLE|ACP` spend is fine). Always verify a script-path signature against the recomputed BIP341/342 sighash. Xverse and UniSat honor the flag correctly.
 - **Broadcast:** wallet `pushPsbt` if present, else mempool.space.
 - **Network:** `switchNetwork` ❌ (extension UI only), `getNetwork` ✅ (`livenet`→mainnet, `testnet`→testnet).
 
